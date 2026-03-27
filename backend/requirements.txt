@@ -1,0 +1,11 @@
+fastapi>=0.100.0
+uvicorn[standard]>=0.20.0
+python-multipart>=0.0.5
+python-docx>=1.0.0
+crewai>=0.1.0,<0.2.0
+langchain-openai>=0.0.2
+openai>=1.0.0
+pydantic>=2.0.0
+sse-starlette>=1.0.0
+aiofiles>=22.0.0
+python-dotenv>=1.0.0

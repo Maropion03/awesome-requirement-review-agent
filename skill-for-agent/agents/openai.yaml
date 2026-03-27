@@ -1,0 +1,3 @@
+display_name: Skill For Agent
+short_description: Run the local rule-based PRD review skill on a local .md or .docx file path, not pasted PRD text unless the file is unavailable.
+default_prompt: Review a local PRD file path with the rule-based PRD reviewer. Accept only .md or .docx files, and do not ask for pasted PRD text unless the file is unavailable. Summarize the result.
