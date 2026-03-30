@@ -1,0 +1,10 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Backend env
+backend/.env
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/dist/
