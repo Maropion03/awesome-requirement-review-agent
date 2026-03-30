@@ -2,16 +2,20 @@
 
 ## Git state
 - Current branch: `work`
-- HEAD: `6cd58f9` (`feat(frontend): scaffold minimal vue3 vite app structure`)
-- Local branches: only `work`
+- HEAD: `e2124c5` (`docs: add repo status snapshot and merge-blocker analysis`)
+- Local branches: `work`, `main`
 - Remotes: none configured
 
-## Why this branch cannot be merged right now
-1. There is no target branch in this repository (for example `main` or `master`) to merge into.
-2. There is no remote (such as `origin`) configured, so PR-based merge workflows cannot run.
+## Mergeability analysis (updated)
+- ✅ Local target branch now exists (`main`), so from a pure local-git perspective, branch topology is no longer the blocker.
+- ❌ Repository still has no remote (`origin`), so there is no hosted PR destination and no server-side merge path.
 
-## Suggested fix path
-1. Add a remote, e.g. `git remote add origin <repo-url>`.
-2. Ensure target branch exists on remote (usually `main`).
-3. Push current branch and open a PR from `work` to target branch.
-4. Run CI checks and resolve any review/merge requirements.
+## Why you still cannot merge in practice
+1. PR merge requires a remote hosting platform branch (GitHub/GitLab/Gitea), but no remote is configured.
+2. Without remote, branch protection/CI/review checks cannot run, so merge buttons do not exist.
+
+## Next actions (execute on your side with repo URL)
+1. `git remote add origin <repo-url>`
+2. `git push -u origin main`
+3. `git push -u origin work`
+4. Open PR: `work` -> `main`
