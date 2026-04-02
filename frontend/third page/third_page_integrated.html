@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html class="light" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PRD 评审助手</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "surface": "#fef8f1",
+        "on-error-container": "#93000a",
+        "secondary-fixed": "#eddcfd",
+        "on-tertiary-fixed": "#281800",
+        "surface-bright": "#fef8f1",
+        "surface-variant": "#e7e2db",
+        "surface-container-lowest": "#ffffff",
+        "outline": "#7b757d",
+        "inverse-primary": "#d1c0e1",
+        "primary": "#3a2e47",
+        "surface-container-low": "#f8f3ec",
+        "on-primary-container": "#c3b2d3",
+        "tertiary-fixed-dim": "#f4bd69",
+        "secondary": "#665974",
+        "on-error": "#ffffff",
+        "tertiary-container": "#654300",
+        "background": "#fef8f1",
+        "error-container": "#ffdad6",
+        "tertiary": "#482e00",
+        "surface-container": "#f3ede6",
+        "outline-variant": "#cbc4cd",
+        "secondary-fixed-dim": "#d1c0e0",
+        "surface-container-high": "#ede7e0",
+        "surface-dim": "#ded9d3",
+        "primary-fixed": "#eedcfd",
+        "primary-container": "#51445f",
+        "inverse-on-surface": "#f5f0e9",
+        "on-primary": "#ffffff",
+        "error": "#ba1a1a",
+        "on-background": "#1d1b17",
+        "on-secondary": "#ffffff",
+        "on-secondary-fixed-variant": "#4e425c",
+        "on-surface": "#1d1b17",
+        "inverse-surface": "#32302c",
+        "on-tertiary-container": "#e6b05e",
+        "on-secondary-container": "#6c5f7a",
+        "primary-fixed-dim": "#d1c0e1",
+        "surface-container-highest": "#e7e2db",
+        "on-surface-variant": "#4a454c",
+        "on-secondary-fixed": "#21172e",
+        "on-tertiary-fixed-variant": "#614000",
+        "secondary-container": "#eddcfd",
+        "surface-tint": "#675975",
+        "on-primary-fixed-variant": "#4e415c",
+        "on-tertiary": "#ffffff",
+        "tertiary-fixed": "#ffddb0",
+        "on-primary-fixed": "#22162f"
+      },
+      fontFamily: {
+        "headline": ["Inter", "sans-serif"],
+        "body": ["Inter", "sans-serif"],
+        "label": ["Inter", "sans-serif"]
+      },
+      borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "1rem", "full": "9999px"},
+    },
+  },
+}
+</script>
+<style>
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+body { background-color: #fef8f1; color: #1d1b17; font-family: 'Inter', sans-serif; overflow: hidden; }
+.glass-effect { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); }
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(58, 46, 71, 0.1); border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(58, 46, 71, 0.2); }
+.editorial-shadow { box-shadow: 0 12px 40px rgba(31, 24, 23, 0.06); }
+</style>
+</head>
+<body class="bg-background text-on-background antialiased font-body h-screen flex flex-col">
+<!-- SideNavBar -->
+<aside class="flex flex-col fixed left-0 top-0 h-full p-4 w-64 border-r-0 bg-[#f8f3ec] dark:bg-stone-900 font-['Inter'] antialiased tracking-tight z-50">
+<div class="flex items-center gap-3 px-3 py-6 mb-8">
+<h1 class="font-['Newsreader',_serif] font-semibold text-[#3a2e47] dark:text-[#eedcfd] leading-tight w-full text-center tracking-tight text-2xl italic">  PRD 评审工作台</h1>
+</div>
+<nav class="space-y-2 flex-1">
+<a class="flex items-center gap-3 px-4 py-3 text-stone-500 dark:text-stone-400 hover:text-[#3a2e47] dark:hover:text-stone-200 hover:bg-white/50 dark:hover:bg-stone-800/50 transition-all duration-200 scale-98 active:scale-95 font-medium" href="#" onclick="navigateToWorkbench(event)">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-sm tracking-wide font-medium">工作台</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-stone-500 dark:text-stone-400 hover:text-[#3a2e47] dark:hover:text-stone-200 hover:bg-white/50 dark:hover:bg-stone-800/50 transition-all duration-200 scale-98 active:scale-95 font-medium" href="#" onclick="navigateToReport(event)">
+<span class="material-symbols-outlined">article</span>
+<span class="text-sm tracking-wide font-medium">评审报告</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#3a2e47] dark:text-[#ffffff] bg-white dark:bg-stone-800 rounded-lg hover:bg-white/50 dark:hover:bg-stone-800/50 transition-all duration-200 scale-98 active:scale-95 font-medium" href="#">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="text-sm tracking-wide font-medium">评审助手</span>
+</a>
+</nav>
+</aside>
+
+<!-- TopNavBar -->
+<header class="flex justify-between items-center px-8 py-4 fixed top-0 right-0 left-64 h-16 z-40 bg-[#fdf9f1]/80 backdrop-blur-xl editorial-shadow">
+<div class="flex-1 flex justify-center">
+<div class="items-center gap-1 bg-surface-container-low px-3 py-1.5 rounded-full border border-outline-variant/10 flex">
+<span class="material-symbols-outlined text-stone-400 text-sm">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-64 placeholder-stone-400" placeholder="搜索文档或报告..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<span class="px-2.5 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold tracking-wider uppercase">Beta</span>
+</div>
+</div>
+</header>
+
+<!-- Main Content Area -->
+<main class="pl-64 pt-16 h-screen flex flex-row overflow-hidden bg-[#fef8f1]">
+<!-- Left Side: Conversation & Summary -->
+<div class="flex-1 flex flex-col relative h-full">
+<!-- Top Static Content: Header & Stats -->
+<div class="px-10 pt-10 pb-4 bg-[#fef8f1]">
+<h1 class="font-bold text-3xl text-primary tracking-tight">报告摘要与评审助手</h1>
+<p class="text-secondary mt-2 max-w-2xl leading-relaxed">AI 助手将根据 PRD 内容为您提供精准的编辑反馈。继续追问以完善您的需求文档。</p>
+</div>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-4 gap-4 px-10 mb-6 bg-[#fef8f1]">
+<div class="bg-surface-container-low p-4 rounded-xl border-b-2 border-primary/5">
+<p class="text-[10px] font-bold text-secondary uppercase tracking-widest mb-1">综合评分</p>
+<div class="flex items-baseline gap-2">
+<span id="totalScoreCard" class="text-2xl font-bold text-primary">--</span>
+<span class="text-secondary text-sm">/ 100</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded-xl border-b-2 border-tertiary-fixed-dim/20">
+<p class="text-[10px] font-bold text-secondary uppercase tracking-widest mb-1">评审建议</p>
+<div class="flex items-center gap-2">
+<span id="recommendationCard" class="text-lg font-bold text-on-tertiary-container bg-tertiary-fixed-dim/20 px-3 py-0.5 rounded-full">--</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded-xl border-b-2 border-primary/5">
+<p class="text-[10px] font-bold text-secondary uppercase tracking-widest mb-1">会话状态</p>
+<div class="flex items-center gap-2">
+<span id="sessionStatusDot" class="w-2 h-2 rounded-full bg-tertiary-fixed-dim animate-pulse"></span>
+<span id="sessionStatusText" class="text-lg font-bold text-primary">已连接</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded-xl border-b-2 border-primary/5">
+<p class="text-[10px] font-bold text-secondary uppercase tracking-widest mb-1">模型状态</p>
+<p class="text-lg font-bold text-primary">MiniMax</p>
+</div>
+</div>
+
+<!-- Message List -->
+<div id="messageList" class="flex-1 overflow-y-auto custom-scrollbar px-10 pb-44 space-y-8">
+<!-- Messages will be inserted here -->
+</div>
+
+<!-- Floating Composer -->
+<div class="absolute bottom-0 left-0 right-0 p-8 pt-0 z-20">
+<div class="max-w-4xl mx-auto glass-effect rounded-2xl p-2 shadow-[0_12px_48px_rgba(31,24,23,0.12)] border border-white/40 flex flex-col">
+<textarea id="messageInput" class="w-full bg-transparent border-none focus:ring-0 text-sm py-4 px-4 resize-none h-20 placeholder:text-outline-variant font-body" placeholder="输入您的问题..."></textarea>
+<div class="flex justify-between items-center px-4 pb-2">
+<div class="flex gap-1">
+<button class="p-2 hover:bg-surface-container rounded-lg transition-colors text-stone-500 group" title="附件">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary">attach_file</span>
+</button>
+<button class="p-2 hover:bg-surface-container rounded-lg transition-colors text-stone-500 group" title="图片">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary">image</span>
+</button>
+<button class="p-2 hover:bg-surface-container rounded-lg transition-colors text-stone-500 group" title="语音">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary">mic</span>
+</button>
+</div>
+<button id="sendBtn" class="bg-primary text-white px-6 py-2 rounded-full font-bold text-sm flex items-center gap-2 hover:bg-primary-container transition-all shadow-lg active:scale-95">
+                        发送
+                        <span class="material-symbols-outlined text-[16px]">send</span>
+</button>
+</div>
+</div>
+</div>
+
+<!-- Right Sidebar: Workflow & Expert -->
+<div class="w-80 bg-surface-container-low border-l border-outline-variant/10 p-8 overflow-y-auto custom-scrollbar h-full">
+<div class="mb-10">
+<h3 class="text-[10px] font-bold text-secondary uppercase tracking-widest mb-6">工作流操作</h3>
+<div class="space-y-3">
+<button id="rerunBtn" class="w-full flex items-center justify-between p-4 bg-white hover:bg-white/80 rounded-xl transition-all group shadow-sm">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary group-hover:rotate-180 transition-transform duration-500">replay</span>
+<span class="text-sm font-semibold text-primary">重新评审</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant text-[18px]">chevron_right</span>
+</button>
+<button id="exportPdfBtn" class="w-full flex items-center justify-between p-4 bg-white hover:bg-white/80 rounded-xl transition-all group shadow-sm">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">picture_as_pdf</span>
+<span class="text-sm font-semibold text-primary">导出 PDF</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant text-[18px]">download</span>
+</button>
+<button id="shareBtn" class="w-full flex items-center justify-between p-4 bg-white hover:bg-white/80 rounded-xl transition-all group shadow-sm">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">share</span>
+<span class="text-sm font-semibold text-primary">分享报告</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant text-[18px]">link</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+
+<script>
+const API_BASE = 'http://localhost:8000/api';
+let sessionId = null;
+let conversationHistory = [];
+
+// ========== Init ==========
+document.addEventListener('DOMContentLoaded', () => {
+  sessionId = sessionStorage.getItem('lastSessionId') || getQueryParam('session');
+  if (sessionId) {
+    loadSessionData();
+    loadInitialMessage();
+  } else {
+    addWelcomeMessage();
+  }
+  setupEventListeners();
+});
+
+// ========== Load Session Data ==========
+async function loadSessionData() {
+  if (!sessionId) return;
+
+  try {
+    // Try to get report for stats
+    const reportRes = await fetch(`${API_BASE}/review/report/${sessionId}`);
+    if (reportRes.ok) {
+      const report = await reportRes.json();
+      document.getElementById('totalScoreCard').textContent = Math.round(report.total_score || 0);
+      document.getElementById('recommendationCard').textContent = report.recommendation || 'PENDING';
+    }
+
+    // Check session status
+    const statusRes = await fetch(`${API_BASE}/review/status/${sessionId}`);
+    if (statusRes.ok) {
+      const status = await statusRes.json();
+      updateSessionStatus(status.status);
+    }
+  } catch (e) {
+    console.warn('Could not load session data:', e);
+  }
+}
+
+function updateSessionStatus(status) {
+  const dot = document.getElementById('sessionStatusDot');
+  const text = document.getElementById('sessionStatusText');
+
+  const statusMap = {
+    'uploaded': { color: 'bg-yellow-400', text: '待开始' },
+    'started': { color: 'bg-blue-400', text: '评审中' },
+    'reviewing': { color: 'bg-blue-400', text: '评审中' },
+    'completed': { color: 'bg-green-400', text: '已完成' },
+    'error': { color: 'bg-red-400', text: '错误' }
+  };
+
+  const info = statusMap[status] || { color: 'bg-stone-400', text: status || '未知' };
+  dot.className = `w-2 h-2 rounded-full ${info.color}`;
+  if (info.color !== 'bg-blue-400') dot.classList.remove('animate-pulse');
+  text.textContent = info.text;
+}
+
+// ========== Welcome Message ==========
+function addWelcomeMessage() {
+  const message = {
+    id: 'welcome',
+    role: 'assistant',
+    content: '您好！我是您的 PRD 评审助手。请先在工作台创建评审任务，我会根据您的需求文档提供精准的分析反馈。',
+    timestamp: new Date().toISOString()
+  };
+  addMessageToUI(message);
+}
+
+function loadInitialMessage() {
+  // Load saved conversation or show welcome
+  const saved = sessionStorage.getItem('conversationHistory');
+  if (saved) {
+    try {
+      conversationHistory = JSON.parse(saved);
+      conversationHistory.forEach(msg => addMessageToUI(msg, false));
+    } catch (e) {}
+  }
+
+  if (conversationHistory.length === 0) {
+    addWelcomeWithContext();
+  }
+}
+
+async function addWelcomeWithContext() {
+  if (!sessionId) return;
+
+  try {
+    const reportRes = await fetch(`${API_BASE}/review/report/${sessionId}`);
+    if (reportRes.ok) {
+      const report = await reportRes.json();
+      const summary = report.summary || '';
+      const score = report.total_score || 0;
+      const rec = report.recommendation || '';
+
+      const message = {
+        id: 'welcome-' + Date.now(),
+        role: 'assistant',
+        content: `您好！我是您的 PRD 评审助手。当前评审已完成，综合评分 ${score}/100，建议：${rec}。${summary ? '摘要：' + summary.substring(0, 100) + '...' : ''}您可以针对具体问题继续追问。`,
+        timestamp: new Date().toISOString()
+      };
+      addMessageToUI(message);
+      conversationHistory.push(message);
+      saveConversation();
+    }
+  } catch (e) {
+    addWelcomeMessage();
+  }
+}
+
+// ========== Send Message ==========
+async function sendMessage() {
+  const input = document.getElementById('messageInput');
+  const message = input.value.trim();
+
+  if (!message) return;
+  if (!sessionId) {
+    alert('请先在工作台创建评审任务');
+    return;
+  }
+
+  // Add user message
+  const userMsg = {
+    id: 'user-' + Date.now(),
+    role: 'user',
+    content: message,
+    timestamp: new Date().toISOString()
+  };
+  addMessageToUI(userMsg);
+  conversationHistory.push(userMsg);
+  saveConversation();
+
+  input.value = '';
+
+  // Add loading indicator
+  const loadingId = addLoadingMessage();
+
+  try {
+    const response = await fetch(`${API_BASE}/review/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        message: message,
+        selected_issue_id: sessionStorage.getItem('selectedIssueId') || null,
+        context_mode: 'default'
+      })
+    });
+
+    removeLoadingMessage(loadingId);
+
+    if (!response.ok) {
+      throw new Error('Chat request failed');
+    }
+
+    const data = await response.json();
+    const assistantMsg = {
+      id: 'assistant-' + Date.now(),
+      role: 'assistant',
+      content: data.message || '抱歉，我暂时无法回答这个问题。',
+      sourceRefs: data.source_refs || [],
+      suggestedActions: data.suggested_actions || [],
+      runState: data.run_state || {},
+      timestamp: new Date().toISOString()
+    };
+
+    addMessageToUI(assistantMsg);
+    conversationHistory.push(assistantMsg);
+    saveConversation();
+
+    // Update stats if available
+    if (data.run_state) {
+      if (data.run_state.total_score) {
+        document.getElementById('totalScoreCard').textContent = Math.round(data.run_state.total_score);
+      }
+      if (data.run_state.recommendation) {
+        document.getElementById('recommendationCard').textContent = data.run_state.recommendation;
+      }
+    }
+
+    // Clear selected issue after use
+    sessionStorage.removeItem('selectedIssueId');
+    sessionStorage.removeItem('selectedIssue');
+
+  } catch (error) {
+    removeLoadingMessage(loadingId);
+    const errorMsg = {
+      id: 'error-' + Date.now(),
+      role: 'assistant',
+      content: '抱歉，发生了错误：' + error.message + '。请稍后再试。',
+      timestamp: new Date().toISOString()
+    };
+    addMessageToUI(errorMsg);
+  }
+}
+
+function addMessageToUI(msg, save = true) {
+  const container = document.getElementById('messageList');
+
+  if (msg.role === 'user') {
+    container.innerHTML += `
+      <div class="flex gap-4 justify-end">
+        <div class="max-w-2xl text-right">
+          <div class="bg-primary text-white p-5 rounded-2xl rounded-tr-none shadow-md inline-block text-left">
+            <p class="leading-relaxed text-[15px]">${escapeHtml(msg.content)}</p>
+          </div>
+        </div>
+        <div class="w-9 h-9 rounded-lg bg-secondary flex-shrink-0 flex items-center justify-center">
+          <span class="material-symbols-outlined text-white text-sm">person</span>
+        </div>
+      </div>
+    `;
+  } else {
+    const actionsHtml = msg.suggestedActions && msg.suggestedActions.length > 0 ? `
+      <div class="flex flex-wrap gap-2 mt-3">
+        ${msg.suggestedActions.map(action => `
+          <button class="suggestion-btn text-[11px] font-bold px-4 py-2 bg-white rounded-full border border-outline-variant/20 hover:border-primary transition-all flex items-center gap-1.5 text-primary"
+                  data-action-type="${action.type}"
+                  data-action-label="${action.label}"
+                  ${action.issue_id ? `data-issue-id="${action.issue_id}"` : ''}>
+            <span class="material-symbols-outlined text-[14px]">auto_awesome</span>
+            ${action.label}
+          </button>
+        `).join('')}
+      </div>
+    ` : '';
+
+    const refsHtml = msg.sourceRefs && msg.sourceRefs.length > 0 ? `
+      <div class="mt-4 p-3 bg-white/50 rounded-lg border-l-2 border-tertiary-fixed-dim flex items-start gap-3">
+        <span class="material-symbols-outlined text-tertiary text-sm mt-0.5">description</span>
+        <div class="text-xs text-secondary leading-normal italic">
+          ${msg.sourceRefs.map(ref => `
+            <p><strong>${ref.name || ref.type}:</strong> ${ref.excerpt || ''}</p>
+          `).join('')}
+        </div>
+      </div>
+    ` : '';
+
+    container.innerHTML += `
+      <div class="flex gap-4">
+        <div class="w-9 h-9 rounded-lg bg-primary-container flex-shrink-0 flex items-center justify-center">
+          <span class="material-symbols-outlined text-white text-sm" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+        </div>
+        <div class="max-w-2xl">
+          <div class="bg-surface-container-low p-6 rounded-2xl rounded-tl-none shadow-sm">
+            <p class="text-on-surface leading-relaxed text-[15px]">${escapeHtml(msg.content)}</p>
+            ${refsHtml}
+          </div>
+          ${actionsHtml}
+        </div>
+      </div>
+    `;
+
+    // Bind suggestion buttons
+    if (msg.suggestedActions && msg.suggestedActions.length > 0) {
+      setTimeout(bindSuggestionButtons, 100);
+    }
+  }
+
+  container.scrollTop = container.scrollHeight;
+}
+
+function addLoadingMessage() {
+  const container = document.getElementById('messageList');
+  const loadingId = 'loading-' + Date.now();
+  container.innerHTML += `
+    <div id="${loadingId}" class="flex gap-4">
+      <div class="w-9 h-9 rounded-lg bg-primary-container flex-shrink-0 flex items-center justify-center">
+        <span class="material-symbols-outlined text-white text-sm" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+      </div>
+      <div class="max-w-2xl">
+        <div class="bg-surface-container-low p-6 rounded-2xl rounded-tl-none shadow-sm">
+          <p class="text-on-surface leading-relaxed text-[15px] italic text-secondary animate-pulse">正在思考...</p>
+        </div>
+      </div>
+    </div>
+  `;
+  container.scrollTop = container.scrollHeight;
+  return loadingId;
+}
+
+function removeLoadingMessage(loadingId) {
+  const el = document.getElementById(loadingId);
+  if (el) el.remove();
+}
+
+// ========== Suggestion Buttons ==========
+function bindSuggestionButtons() {
+  document.querySelectorAll('.suggestion-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.actionType;
+      const label = btn.dataset.actionLabel;
+      const issueId = btn.dataset.issueId;
+
+      if (type === 'focus_issue' && issueId) {
+        sessionStorage.setItem('selectedIssueId', issueId);
+        document.getElementById('messageInput').value = `请详细说明问题 ${issueId}`;
+        document.getElementById('messageInput').focus();
+      } else if (type === 'generate_suggestion') {
+        document.getElementById('messageInput').value = '请给出详细的修改建议';
+        document.getElementById('messageInput').focus();
+      } else if (type === 'rerun') {
+        handleRerun();
+      } else if (type === 'switch_preset') {
+        document.getElementById('messageInput').value = '请切换到更严格的评审模式';
+        document.getElementById('messageInput').focus();
+      } else {
+        document.getElementById('messageInput').value = label;
+        document.getElementById('messageInput').focus();
+      }
+    });
+  });
+}
+
+// ========== Event Listeners ==========
+function setupEventListeners() {
+  // Send button
+  document.getElementById('sendBtn').addEventListener('click', sendMessage);
+
+  // Enter to send (Shift+Enter for newline)
+  document.getElementById('messageInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  // Workflow buttons
+  document.getElementById('rerunBtn').addEventListener('click', handleRerun);
+  document.getElementById('exportPdfBtn').addEventListener('click', handleExportPdf);
+  document.getElementById('shareBtn').addEventListener('click', handleShare);
+}
+
+async function handleRerun() {
+  if (!sessionId) return;
+  if (confirm('确定要重新评审吗？这将清除当前评审进度。')) {
+    try {
+      await fetch(`${API_BASE}/review/reset?session_id=${sessionId}`, { method: 'POST' });
+      sessionStorage.removeItem('conversationHistory');
+      sessionStorage.removeItem('lastReport');
+      navigateToWorkbench(event);
+    } catch (e) {
+      alert('重置失败');
+    }
+  }
+}
+
+function handleExportPdf() {
+  if (!sessionId) {
+    alert('无可用报告');
+    return;
+  }
+  window.open(`${API_BASE}/review/export/pdf/${sessionId}`, '_blank');
+}
+
+async function handleShare() {
+  if (!sessionId) {
+    alert('无可用报告');
+    return;
+  }
+  try {
+    const response = await fetch(`${API_BASE}/review/share?session_id=${sessionId}`, { method: 'POST' });
+    const data = await response.json();
+    const shareUrl = `${window.location.origin}${data.share_url}`;
+    await navigator.clipboard.writeText(shareUrl);
+    alert(`分享链接已复制到剪贴板:\n${shareUrl}`);
+  } catch (e) {
+    alert('生成分享链接失败');
+  }
+}
+
+// ========== Navigation ==========
+function navigateToWorkbench(e) {
+  if (e) e.preventDefault();
+  window.location.href = '/first page code_integrated.html';
+}
+
+function navigateToReport(e) {
+  if (e) e.preventDefault();
+  window.location.href = '/second page/second_page_integrated.html';
+}
+
+// ========== Utilities ==========
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function saveConversation() {
+  try {
+    sessionStorage.setItem('conversationHistory', JSON.stringify(conversationHistory.slice(-50)));
+  } catch (e) {}
+}
+
+function getQueryParam(name) {
+  const params = new URLSearchParams(window.location.search);
+  return params.get(name);
+}
+</script>
+</body></html>

@@ -8,10 +8,18 @@ from datetime import date
 from pathlib import Path
 from typing import Optional, Dict, Any, AsyncGenerator
 
+from agents.orchestrator import Orchestrator
 from config.prompts import PRESETS, DIMENSION_PROMPTS, REVIEWER_BASE_PROMPT
 from services.sse_service import SSEService
 from tools.parser import PRDParser
 from utils.minimax_client import get_minimax_client
+from utils.report_utils import (
+    calculate_weighted_total_score,
+    determine_recommendation,
+    format_report_summary,
+    normalize_dimension_score,
+    sort_and_renumber_issues,
+)
 
 
 class ReviewService:
@@ -38,6 +46,7 @@ class ReviewService:
         self.parser = PRDParser()
         self.llm = None
         self.prd_content: str = ""
+        self.orchestrator: Optional[Orchestrator] = None
 
         self._review_results: Dict[str, Dict[str, Any]] = {}
         self._is_running = False
@@ -54,6 +63,12 @@ class ReviewService:
             api_base=self.api_base,
             streaming=False,
         )
+        self.orchestrator = Orchestrator(
+            model=self.model,
+            api_key=self.api_key,
+            api_base=self.api_base,
+            sse_service=self.sse_service,
+        )
 
     async def start(self) -> Dict[str, Any]:
         """Start the review process."""
@@ -64,40 +79,19 @@ class ReviewService:
         self._review_results = {}
 
         try:
-            await self.initialize()
+            if not self.prd_content or not self.orchestrator:
+                await self.initialize()
 
-            # Review each dimension
-            for dimension_key in DIMENSION_PROMPTS.keys():
-                dim_info = DIMENSION_PROMPTS[dimension_key]
-                await self.sse_service.push_dimension_start(dim_info["name"])
-
-                # Build prompt and run review
-                prompt = REVIEWER_BASE_PROMPT.format(
-                    context=self.prd_content,
-                    dimension=dim_info["name"],
-                )
-
-                # Run LLM call
-                result = await self._call_llm(prompt)
-                parsed = self._parse_review_result(result, dimension_key, dim_info["name"])
-
-                self._review_results[dimension_key] = parsed
-
-                await self.sse_service.push_dimension_complete(
-                    dimension=dim_info["name"],
-                    score=parsed.get("score", 0),
-                    issues=parsed.get("issues", []),
-                )
-
-            # Generate final report
-            report = await self._generate_report()
-
-            await self.sse_service.push_complete(report)
+            result = await self.orchestrator.run_review(
+                self.prd_content,
+                preset=self.preset,
+            )
+            self._review_results = result.get("review_results", {})
+            report = result.get("report", {})
 
             return {"status": "completed", "report": report}
 
         except Exception as e:
-            await self.sse_service.push_error(str(e))
             raise
         finally:
             self._is_running = False
@@ -171,40 +165,20 @@ class ReviewService:
 
         # Build report content
         preset_config = PRESETS.get(self.preset, PRESETS["normal"])
-
-        # Calculate total score
-        total_score = 0.0
-        weight_sum = 0.0
-
-        for dimension_key, result in self._review_results.items():
-            if dimension_key in preset_config:
-                weight = preset_config[dimension_key]
-            else:
-                weight = preset_config.get("others", 0.1)
-            total_score += result.get("score", 0) * weight
-            weight_sum += weight
-
-        if weight_sum > 0:
-            total_score = round(total_score / weight_sum * 10, 1)
-
-        # Determine recommendation
-        if total_score >= 8.0:
-            recommendation = "APPROVE"
-        elif total_score >= 6.0:
-            recommendation = "MODIFY"
-        else:
-            recommendation = "REJECT"
+        total_score = calculate_weighted_total_score(self._review_results, preset_config)
+        recommendation = determine_recommendation(total_score)
 
         # Collect all issues
         all_issues = []
         for dimension_key, result in self._review_results.items():
             for issue in result.get("issues", []):
-                issue["dimension"] = DIMENSION_PROMPTS.get(dimension_key, {}).get("name", dimension_key)
-                all_issues.append(issue)
+                all_issues.append({
+                    **issue,
+                    "dimension": DIMENSION_PROMPTS.get(dimension_key, {}).get("name", dimension_key),
+                })
 
-        # Sort issues by severity
-        severity_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
-        all_issues.sort(key=lambda x: severity_order.get(x.get("severity", "LOW"), 3))
+        # Sort issues by severity and assign globally unique ids per severity.
+        all_issues = sort_and_renumber_issues(all_issues)
 
         # Build dimension scores
         dimension_scores = []
@@ -213,7 +187,7 @@ class ReviewService:
             weight = preset_config.get(dimension_key, preset_config.get("others", 0.1))
             dimension_scores.append({
                 "dimension": dim_name,
-                "score": result.get("score", 0),
+                "score": self._normalize_score(result.get("score", 0)),
                 "weight": weight,
                 "issues_count": len(result.get("issues", [])),
                 "reasoning": result.get("reasoning", ""),
@@ -228,10 +202,14 @@ class ReviewService:
             "recommendation": recommendation,
             "dimension_scores": dimension_scores,
             "issues": all_issues,
-            "summary": f"综合评分 {total_score}/10，建议：{recommendation}",
+            "summary": format_report_summary(total_score, recommendation, len(all_issues)),
         }
 
         return report
+
+    def _normalize_score(self, score: Any) -> float:
+        """Clamp raw scores into the expected 0-10 range."""
+        return normalize_dimension_score(score)
 
     async def stream_events(self):
         """Stream SSE events."""

@@ -2,6 +2,7 @@
 Review Agents - 6 dimension reviewers.
 """
 
+import asyncio
 import json
 from typing import Optional, Any, Dict
 
@@ -13,6 +14,16 @@ from config.prompts import DIMENSION_PROMPTS, REVIEWER_BASE_PROMPT
 
 class DimensionReviewer:
     """Base class for dimension reviewers."""
+
+    RETRYABLE_ERROR_MARKERS = (
+        "2064",
+        "当前服务集群负载较高",
+        "服务集群负载较高",
+        "please retry later",
+        "service busy",
+    )
+    MAX_RETRY_ATTEMPTS = 2
+    RETRY_DELAY_SECONDS = 0.6
 
     def __init__(
         self,
@@ -45,10 +56,12 @@ class DimensionReviewer:
 
     def build_review_prompt(self, prd_content: str) -> str:
         """Build the review prompt for this dimension."""
-        return REVIEWER_BASE_PROMPT.format(
+        base_prompt = REVIEWER_BASE_PROMPT.format(
             context=prd_content,
             dimension=self.dimension_info.get("name", self.dimension),
         )
+        dimension_prompt = self.dimension_info.get("prompt", "")
+        return f"{base_prompt}\n\n维度检查清单：\n{dimension_prompt}".strip()
 
     def parse_result(self, result: str) -> Dict[str, Any]:
         """Parse the review result from LLM output."""
@@ -67,6 +80,53 @@ class DimensionReviewer:
                 "issues": [],
                 "reasoning": f"解析失败: {result[:200]}",
             }
+
+    async def review(self, prd_content: str) -> Dict[str, Any]:
+        """Run the actual LLM-backed review for a dimension."""
+        prompt = self.build_review_prompt(prd_content)
+        loop = asyncio.get_event_loop()
+        last_exc = None
+
+        for attempt in range(1, self.MAX_RETRY_ATTEMPTS + 1):
+            try:
+                result = await loop.run_in_executor(
+                    None,
+                    lambda: self.llm.invoke(prompt),
+                )
+                content = result.content if hasattr(result, "content") else str(result)
+                return self.parse_result(content)
+            except Exception as exc:
+                last_exc = exc
+                if not self._is_retryable_model_error(exc) or attempt >= self.MAX_RETRY_ATTEMPTS:
+                    raise RuntimeError(self._format_model_error(exc)) from exc
+                await asyncio.sleep(self.RETRY_DELAY_SECONDS * attempt)
+
+        raise RuntimeError(self._format_model_error(last_exc or RuntimeError("unknown error")))
+
+    def _format_model_error(self, exc: Exception) -> str:
+        message = str(exc)
+        lowered = message.lower()
+
+        if "401" in message or "authorized_error" in lowered or "login fail" in lowered or "1004" in message:
+            return (
+                f"MiniMax 认证失败，维度「{self.dimension_info.get('name', self.dimension)}」评审无法继续。"
+                "请检查 MINIMAX_API_KEY 和 MINIMAX_API_BASE。"
+            )
+
+        if "timeout" in lowered:
+            return f"MiniMax 请求超时，维度「{self.dimension_info.get('name', self.dimension)}」评审暂时无法完成。"
+
+        if self._is_retryable_model_error(exc):
+            return (
+                f"MiniMax 服务暂时繁忙，维度「{self.dimension_info.get('name', self.dimension)}」评审未完成。"
+                "请稍后重试。"
+            )
+
+        return f"MiniMax 调用失败，维度「{self.dimension_info.get('name', self.dimension)}」评审异常：{message}"
+
+    def _is_retryable_model_error(self, exc: Exception) -> bool:
+        lowered = str(exc).lower()
+        return any(marker.lower() in lowered for marker in self.RETRYABLE_ERROR_MARKERS)
 
 
 class CompletenessReviewer(DimensionReviewer):

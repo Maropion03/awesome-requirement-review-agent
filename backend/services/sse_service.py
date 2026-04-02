@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import json
 from typing import AsyncGenerator
 
@@ -11,6 +12,7 @@ class SSEService:
     def __init__(self, session_id: str):
         self.session_id = session_id
         self._queue: asyncio.Queue = asyncio.Queue()
+        self._listeners = []
 
     async def event_generator(self) -> AsyncGenerator[ServerSentEvent, None]:
         """Generate SSE events for the client."""
@@ -36,35 +38,35 @@ class SSEService:
 
     async def push_dimension_start(self, dimension: str):
         """Push a dimension review start event."""
-        await self._queue.put({
-            "type": "dimension_start",
-            "data": {"dimension": dimension, "status": "started"},
-        })
+        await self._publish("dimension_start", {"dimension": dimension, "status": "started"})
 
     async def push_dimension_complete(self, dimension: str, score: float, issues: list):
         """Push a dimension review complete event."""
-        await self._queue.put({
-            "type": "dimension_complete",
-            "data": {"dimension": dimension, "score": score, "issues": issues},
-        })
+        await self._publish("dimension_complete", {"dimension": dimension, "score": score, "issues": issues})
 
     async def push_streaming(self, content: str):
         """Push a streaming content event."""
-        await self._queue.put({
-            "type": "streaming",
-            "data": {"content": content},
-        })
+        await self._publish("streaming", {"content": content})
 
     async def push_complete(self, report: dict):
         """Push the complete report event."""
-        await self._queue.put({
-            "type": "complete",
-            "data": {"report": report},
-        })
+        await self._publish("complete", report)
 
     async def push_error(self, message: str):
         """Push an error event."""
+        await self._publish("error", {"message": message})
+
+    def subscribe(self, listener):
+        """Subscribe to emitted events for side effects such as session tracking."""
+        self._listeners.append(listener)
+
+    async def _publish(self, event_type: str, data: dict):
         await self._queue.put({
-            "type": "error",
-            "data": {"message": message},
+            "type": event_type,
+            "data": data,
         })
+
+        for listener in self._listeners:
+            result = listener(event_type, data)
+            if inspect.isawaitable(result):
+                await result

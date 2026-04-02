@@ -1,0 +1,1711 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PRD 评审工作台</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Newsreader:ital,wght@0,400;0,600;1,400&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            background: "#f7f2e8",
+            panel: "#fffdf8",
+            ink: "#1f1d19",
+            muted: "#6b675f",
+            line: "#ddd4c6",
+            primary: "#ef6c00",
+            accent: "#d9a441",
+            soft: "#ece4d7",
+            success: "#256f4b",
+            danger: "#a63f2d"
+          },
+          fontFamily: {
+            body: ["Inter", "sans-serif"],
+            display: ["Newsreader", "serif"]
+          },
+          boxShadow: {
+            card: "0 18px 40px rgba(31, 29, 25, 0.08)"
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(217, 164, 65, 0.16), transparent 28%),
+        radial-gradient(circle at top right, rgba(239, 108, 0, 0.15), transparent 24%),
+        #f7f2e8;
+      color: #1f1d19;
+    }
+
+    .material-symbols-outlined {
+      font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+    }
+
+    .view-panel {
+      display: none;
+    }
+
+    .view-panel.is-active {
+      display: block;
+    }
+
+    .content-shell {
+      background: rgba(255, 253, 248, 0.72);
+    }
+
+    .nav-button.is-active {
+      background: #fffdf8;
+      color: #ef6c00;
+      box-shadow: 0 10px 24px rgba(31, 29, 25, 0.08);
+    }
+
+    .upload-area.drag-over {
+      border-color: #ef6c00;
+      background: rgba(239, 108, 0, 0.07);
+    }
+
+    .preset-btn.is-active {
+      border-color: #ef6c00;
+      background: #fffdf8;
+      box-shadow: 0 10px 24px rgba(31, 29, 25, 0.08);
+    }
+
+    .agent-toggle.is-active {
+      background: #ef6c00;
+    }
+
+    .agent-toggle.is-active .agent-thumb {
+      transform: translateX(18px);
+    }
+
+    .terminal-line:last-child {
+      margin-bottom: 0;
+    }
+
+    .message-bubble p {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .issue-card:hover {
+      transform: translateY(-1px);
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(239, 108, 0, 0.18);
+      border-radius: 999px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+  </style>
+</head>
+<body class="font-body min-h-screen antialiased">
+  <input id="fileInput" type="file" accept=".md,.docx" class="hidden" />
+
+  <div class="min-h-screen lg:flex">
+    <aside class="w-full border-b border-line/70 bg-[#efe7db]/80 px-5 py-5 backdrop-blur lg:fixed lg:left-0 lg:top-0 lg:h-screen lg:w-72 lg:border-b-0 lg:border-r">
+      <div class="mb-8 flex items-center justify-between lg:block">
+        <div>
+          <h1 class="font-display text-3xl italic text-ink">PRD 评审工作台</h1>
+        </div>
+        <span id="globalStatusPill" class="inline-flex items-center gap-2 rounded-full border border-line bg-panel px-3 py-1 text-xs font-semibold text-muted">
+          <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+          就绪
+        </span>
+      </div>
+
+      <nav class="space-y-2">
+        <button class="nav-button is-active flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold text-muted transition" data-view-target="workbench" type="button">
+          <span class="material-symbols-outlined text-base">dashboard</span>
+          工作台
+        </button>
+        <button class="nav-button flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold text-muted transition hover:bg-panel/80" data-view-target="report" type="button">
+          <span class="material-symbols-outlined text-base">article</span>
+          评审报告
+        </button>
+        <button class="nav-button flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold text-muted transition hover:bg-panel/80" data-view-target="assistant" type="button">
+          <span class="material-symbols-outlined text-base">smart_toy</span>
+          评审助手
+        </button>
+      </nav>
+
+      <div class="mt-8 rounded-3xl border border-line/80 bg-panel p-5 shadow-card">
+        <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">Current Run</p>
+        <div class="mt-4 space-y-3 text-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-muted">Session</span>
+            <span id="sessionMeta" class="font-semibold text-ink">未创建</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-muted">Preset</span>
+            <span id="presetMeta" class="font-semibold text-ink">normal</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-muted">Progress</span>
+            <span id="progressMeta" class="font-semibold text-ink">0%</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="content-shell min-h-screen flex-1 px-4 pb-10 pt-4 lg:ml-72 lg:px-8 lg:pt-8">
+      <header class="mb-6 rounded-[28px] border border-line/70 bg-panel/85 px-6 py-5 shadow-card backdrop-blur">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 id="pageTitle" class="font-display text-4xl text-ink">新建 PRD 评审任务</h2>
+            <p id="pageDescription" class="mt-2 max-w-3xl text-sm leading-7 text-muted">上传 PRD，配置评审模式和协作 Agent，直接在当前页面查看报告并继续追问。</p>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <button id="headerWorkbenchBtn" class="rounded-full border border-line bg-soft px-4 py-2 text-sm font-semibold text-primary transition hover:bg-panel" type="button">工作台</button>
+            <button id="headerReportBtn" class="rounded-full border border-line bg-soft px-4 py-2 text-sm font-semibold text-primary transition hover:bg-panel" type="button">报告</button>
+            <button id="headerAssistantBtn" class="rounded-full border border-line bg-soft px-4 py-2 text-sm font-semibold text-primary transition hover:bg-panel" type="button">助手</button>
+          </div>
+        </div>
+      </header>
+
+      <section id="workbenchView" class="view-panel is-active" data-view="workbench">
+        <div class="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.85fr)]">
+          <div class="space-y-6">
+            <div class="rounded-[30px] border border-line/70 bg-panel p-6 shadow-card">
+              <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">Workbench</p>
+                  <h3 class="mt-2 text-2xl font-semibold text-ink">上传文档并启动评审</h3>
+                  <p class="mt-2 max-w-2xl text-sm leading-7 text-muted">静态稿负责交互壳，后端负责上传、评审、报告和聊天接口。报告与助手按钮始终可点击，同页切换查看当前状态。</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="uploadArea" class="upload-area rounded-[30px] border-2 border-dashed border-line bg-panel p-8 shadow-card transition">
+              <div id="uploadEmpty" class="flex min-h-[280px] flex-col items-center justify-center text-center">
+                <div class="flex h-20 w-20 items-center justify-center rounded-3xl bg-soft">
+                  <span class="material-symbols-outlined text-4xl text-primary" style="font-variation-settings:'FILL' 1">upload_file</span>
+                </div>
+                <h3 class="mt-6 text-2xl font-semibold text-ink">拖拽 PRD 到这里</h3>
+                <p class="mt-3 text-sm leading-7 text-muted">支持 `.md` 和 `.docx`，大小不超过 10MB。上传成功后可直接启动后端评审。</p>
+                <button id="browseFileBtn" class="mt-8 rounded-full bg-primary px-7 py-3 text-sm font-semibold text-white transition hover:opacity-90" type="button">选择文件</button>
+              </div>
+              <div id="uploadFilled" class="hidden min-h-[280px]">
+                <div class="flex h-full flex-col justify-between gap-6">
+                  <div>
+                    <div class="flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50">
+                      <span class="material-symbols-outlined text-3xl text-success" style="font-variation-settings:'FILL' 1">task_alt</span>
+                    </div>
+                    <h3 id="uploadedFileName" class="mt-5 text-2xl font-semibold text-ink">--</h3>
+                    <p id="uploadedFileDetail" class="mt-2 text-sm text-muted">--</p>
+                  </div>
+                  <div class="flex flex-wrap gap-3">
+                    <button id="changeFileBtn" class="rounded-full border border-line bg-soft px-5 py-2.5 text-sm font-semibold text-primary transition hover:bg-panel" type="button">更换文件</button>
+                    <button id="resumeReportBtn" class="rounded-full border border-line bg-soft px-5 py-2.5 text-sm font-semibold text-primary transition hover:bg-panel" type="button">查看报告</button>
+                    <button id="resumeAssistantBtn" class="rounded-full border border-line bg-soft px-5 py-2.5 text-sm font-semibold text-primary transition hover:bg-panel" type="button">打开助手</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid gap-6 lg:grid-cols-2">
+              <div class="rounded-[30px] border border-line/70 bg-panel p-6 shadow-card">
+                <div class="flex items-center gap-3">
+                  <span class="material-symbols-outlined text-primary">tune</span>
+                  <div>
+                    <h3 class="text-lg font-semibold text-ink">评审预设</h3>
+                    <p class="text-sm text-muted">选择后将随启动请求发送到后端。</p>
+                  </div>
+                </div>
+                <div class="mt-6 space-y-3">
+                  <button class="preset-btn is-active w-full rounded-2xl border border-line bg-soft p-4 text-left transition" data-preset="normal" type="button">
+                    <p class="text-sm font-semibold text-ink">标准模式</p>
+                    <p class="mt-1 text-xs leading-6 text-muted">覆盖完整业务逻辑与常规功能审查。</p>
+                  </button>
+                  <button class="preset-btn w-full rounded-2xl border border-line bg-soft p-4 text-left transition" data-preset="p0_critical" type="button">
+                    <p class="text-sm font-semibold text-ink">P0 紧急模式</p>
+                    <p class="mt-1 text-xs leading-6 text-muted">突出稳定性、可用性与核心链路风险。</p>
+                  </button>
+                  <button class="preset-btn w-full rounded-2xl border border-line bg-soft p-4 text-left transition" data-preset="innovation" type="button">
+                    <p class="text-sm font-semibold text-ink">创新模式</p>
+                    <p class="mt-1 text-xs leading-6 text-muted">强调体验、差异化与用户价值评估。</p>
+                  </button>
+                </div>
+              </div>
+
+              <div class="rounded-[30px] border border-line/70 bg-panel p-6 shadow-card">
+                <div class="flex items-center gap-3">
+                  <span class="material-symbols-outlined text-primary">hub</span>
+                  <div>
+                    <h3 class="text-lg font-semibold text-ink">协作 Agent</h3>
+                    <p class="text-sm text-muted">配置会在开始评审前发送到 `/review/config`。</p>
+                  </div>
+                </div>
+                <div class="mt-6 space-y-4">
+                  <div class="flex items-center justify-between rounded-2xl bg-soft px-4 py-4">
+                    <div>
+                      <p class="text-sm font-semibold text-ink">研发 Agent</p>
+                      <p class="text-xs text-muted">关注实现复杂度与技术风险</p>
+                    </div>
+                    <button class="agent-toggle is-active relative h-7 w-12 rounded-full bg-stone-300 transition" data-agent="enable_dev_agent" type="button">
+                      <span class="agent-thumb absolute left-[5px] top-[4px] h-5 w-5 rounded-full bg-white transition"></span>
+                    </button>
+                  </div>
+                  <div class="flex items-center justify-between rounded-2xl bg-soft px-4 py-4">
+                    <div>
+                      <p class="text-sm font-semibold text-ink">设计 Agent</p>
+                      <p class="text-xs text-muted">关注信息架构与体验表达</p>
+                    </div>
+                    <button class="agent-toggle relative h-7 w-12 rounded-full bg-stone-300 transition" data-agent="enable_design_agent" type="button">
+                      <span class="agent-thumb absolute left-[5px] top-[4px] h-5 w-5 rounded-full bg-white transition"></span>
+                    </button>
+                  </div>
+                  <div class="flex items-center justify-between rounded-2xl bg-soft px-4 py-4">
+                    <div>
+                      <p class="text-sm font-semibold text-ink">测试 Agent</p>
+                      <p class="text-xs text-muted">关注边界条件与回归风险</p>
+                    </div>
+                    <button class="agent-toggle is-active relative h-7 w-12 rounded-full bg-stone-300 transition" data-agent="enable_test_agent" type="button">
+                      <span class="agent-thumb absolute left-[5px] top-[4px] h-5 w-5 rounded-full bg-white transition"></span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <div class="rounded-[30px] border border-line/70 bg-panel p-6 shadow-card">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">Review Stream</p>
+                  <h3 class="mt-2 text-lg font-semibold text-ink">实时进度</h3>
+                </div>
+                <span id="progressBadge" class="rounded-full bg-soft px-3 py-1 text-xs font-semibold text-primary">WAITING</span>
+              </div>
+              <div class="mt-5 rounded-[26px] bg-[#171a19] p-4 text-[12px] text-stone-200 shadow-inner">
+                <div class="mb-3 flex items-center gap-2 border-b border-white/10 pb-3 text-[11px] uppercase tracking-[0.25em] text-stone-400">
+                  <span class="h-2 w-2 rounded-full bg-red-400"></span>
+                  <span class="h-2 w-2 rounded-full bg-amber-400"></span>
+                  <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
+                  agent_terminal.sh
+                </div>
+                <div id="terminalLog" class="custom-scrollbar h-[320px] overflow-y-auto font-mono leading-6">
+                  <div class="terminal-line text-emerald-300">[--:--:--] SYSTEM_BOOT: Static shell ready.</div>
+                  <div class="terminal-line text-sky-300">[--:--:--] API_BASE: http://127.0.0.1:8005/api</div>
+                  <div class="terminal-line text-stone-400">[--:--:--] Waiting for document upload...</div>
+                </div>
+                <div class="mt-4 border-t border-white/10 pt-4">
+                  <div class="mb-2 flex items-center justify-between text-[11px] text-stone-400">
+                    <span>总体进度</span>
+                    <span id="progressPercent">0%</span>
+                  </div>
+                  <div class="h-2 overflow-hidden rounded-full bg-white/10">
+                    <div id="progressBar" class="h-full w-0 rounded-full bg-[#d9a441] transition-all duration-500"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-6 grid gap-3 sm:grid-cols-2">
+                <button id="startReviewBtn" class="rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90" type="button">开始执行评审</button>
+                <button id="resetReviewBtn" class="rounded-2xl border border-line bg-soft px-5 py-3 text-sm font-semibold text-primary transition hover:bg-panel" type="button">重置当前会话</button>
+                <button id="jumpReportBtn" class="rounded-2xl border border-line bg-soft px-5 py-3 text-sm font-semibold text-primary transition hover:bg-panel" type="button">切换到报告</button>
+                <button id="jumpAssistantBtn" class="rounded-2xl border border-line bg-soft px-5 py-3 text-sm font-semibold text-primary transition hover:bg-panel" type="button">切换到助手</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="reportView" class="view-panel" data-view="report">
+        <div class="space-y-6">
+          <div class="rounded-[30px] border border-line/70 bg-panel p-6 shadow-card">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">Report</p>
+                <h3 id="reportTitle" class="mt-2 text-3xl font-semibold text-ink">评审报告</h3>
+                <p id="reportMeta" class="mt-2 text-sm leading-7 text-muted">等待评审结果。</p>
+              </div>
+              <div class="flex flex-wrap gap-3">
+                <button id="refreshReportBtn" class="rounded-full border border-line bg-soft px-4 py-2 text-sm font-semibold text-primary transition hover:bg-panel" type="button">刷新报告</button>
+                <button id="shareReportBtn" class="rounded-full border border-line bg-soft px-4 py-2 text-sm font-semibold text-primary transition hover:bg-panel" type="button">分享</button>
+                <button id="exportPdfBtn" class="rounded-full border border-line bg-soft px-4 py-2 text-sm font-semibold text-primary transition hover:bg-panel" type="button">导出 PDF</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="reportEmptyState" class="rounded-[30px] border border-line/70 bg-panel p-10 text-center shadow-card">
+            <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-soft">
+              <span class="material-symbols-outlined text-4xl text-primary">description</span>
+            </div>
+            <h3 class="mt-6 text-2xl font-semibold text-ink">还没有可展示的报告</h3>
+            <p class="mx-auto mt-3 max-w-xl text-sm leading-7 text-muted">先在工作台上传文档并启动评审。完成后这里会展示总分、维度明细和详细问题卡片。</p>
+            <button class="mt-8 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90" id="reportEmptyWorkbenchBtn" type="button">返回工作台</button>
+          </div>
+
+          <div id="reportContent" class="hidden space-y-6">
+            <div class="grid gap-6 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+              <div class="rounded-[30px] border border-line/70 bg-panel p-8 shadow-card">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">Total Score</p>
+                <div class="mt-6 flex items-center gap-8">
+                  <div class="relative h-40 w-40">
+                    <svg class="h-40 w-40 -rotate-90">
+                      <circle cx="80" cy="80" r="68" stroke="#ebe2d3" stroke-width="12" fill="none"></circle>
+                      <circle id="scoreCircle" cx="80" cy="80" r="68" stroke="#ef6c00" stroke-width="12" fill="none" stroke-linecap="round" stroke-dasharray="427.256" stroke-dashoffset="427.256"></circle>
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                      <span id="totalScore" class="text-5xl font-semibold text-primary">--</span>
+                      <span id="totalScoreMaxLabel" class="text-xs font-semibold uppercase tracking-[0.25em] text-muted">/ 100</span>
+                    </div>
+                  </div>
+                  <div class="space-y-4">
+                    <div>
+                      <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">Recommendation</p>
+                      <span id="recommendationBadge" class="mt-2 inline-flex rounded-full bg-soft px-4 py-2 text-sm font-semibold text-primary">等待结果</span>
+                    </div>
+                    <div>
+                      <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">Summary</p>
+                      <p id="summaryText" class="mt-2 max-w-xl text-sm leading-7 text-muted">暂无摘要。</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid gap-6 lg:grid-cols-2">
+                <div class="rounded-[30px] border border-line/70 bg-panel p-6 shadow-card">
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">Radar</p>
+                  <div class="mt-4 h-[280px]">
+                    <canvas id="radarChart"></canvas>
+                  </div>
+                </div>
+                <div class="rounded-[30px] border border-line/70 bg-panel p-6 shadow-card">
+                  <div class="flex items-center justify-between">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">Dimensions</p>
+                    <span id="dimensionCount" class="text-sm font-semibold text-primary">0 项</span>
+                  </div>
+                  <div id="dimensionCards" class="mt-4 grid gap-3 sm:grid-cols-2"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-[30px] border border-line/70 bg-panel p-6 shadow-card">
+              <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">Issues</p>
+                  <h3 class="mt-2 text-2xl font-semibold text-ink">详细问题</h3>
+                </div>
+                <div id="issueCounts" class="flex flex-wrap gap-2"></div>
+              </div>
+              <div id="issuesList" class="mt-6 space-y-4"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="assistantView" class="view-panel" data-view="assistant">
+        <div class="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
+          <div class="space-y-6">
+            <div class="rounded-[30px] border border-line/70 bg-panel p-6 shadow-card">
+              <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">Assistant</p>
+                  <h3 class="mt-2 text-3xl font-semibold text-ink">报告摘要与追问助手</h3>
+                  <p class="mt-2 max-w-2xl text-sm leading-7 text-muted">助手始终停留在当前页面，结合报告和选中的问题继续追问，不再依赖页面跳转。</p>
+                </div>
+                <div id="assistantActionsRow" class="flex flex-nowrap gap-3 overflow-x-auto pb-1">
+                  <button id="assistantShareBtn" class="whitespace-nowrap rounded-full border border-line bg-soft px-4 py-2 text-sm font-semibold text-primary transition hover:bg-panel" type="button">分享</button>
+                  <button id="assistantExportBtn" class="whitespace-nowrap rounded-full border border-line bg-soft px-4 py-2 text-sm font-semibold text-primary transition hover:bg-panel" type="button">导出 PDF</button>
+                  <button id="assistantRerunBtn" class="whitespace-nowrap rounded-full border border-line bg-soft px-4 py-2 text-sm font-semibold text-primary transition hover:bg-panel" type="button">重新评审</button>
+                </div>
+              </div>
+            </div>
+
+            <div id="assistantEmptyState" class="rounded-[30px] border border-line/70 bg-panel p-10 text-center shadow-card">
+              <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-soft">
+                <span class="material-symbols-outlined text-4xl text-primary">forum</span>
+              </div>
+              <h3 class="mt-6 text-2xl font-semibold text-ink">助手正在等待上下文</h3>
+              <p class="mx-auto mt-3 max-w-xl text-sm leading-7 text-muted">上传并完成一次评审后，助手会基于报告摘要和问题卡片给出回答与建议。</p>
+              <button class="mt-8 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90" id="assistantEmptyWorkbenchBtn" type="button">去工作台</button>
+            </div>
+
+            <div id="assistantContent" class="hidden space-y-6">
+              <div class="grid gap-4 md:grid-cols-3">
+                <div class="rounded-[26px] bg-panel p-5 shadow-card">
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">综合评分</p>
+                  <p id="assistantScoreCard" class="mt-3 text-3xl font-semibold text-primary">--</p>
+                </div>
+                <div class="rounded-[26px] bg-panel p-5 shadow-card">
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">评审建议</p>
+                  <p id="assistantRecommendationCard" class="mt-3 text-xl font-semibold text-primary">--</p>
+                </div>
+                <div class="rounded-[26px] bg-panel p-5 shadow-card">
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">会话状态</p>
+                  <p id="assistantStatusCard" class="mt-3 text-xl font-semibold text-primary">--</p>
+                </div>
+              </div>
+
+              <div id="selectedIssuePanel" class="rounded-[30px] border border-line/70 bg-panel p-6 shadow-card">
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">Selected Issue</p>
+                    <h4 id="selectedIssueTitle" class="mt-2 text-xl font-semibold text-ink">未选中问题</h4>
+                    <p id="selectedIssueDetail" class="mt-2 text-sm leading-7 text-muted">点击报告中的问题卡片后，这里会自动聚焦对应问题。</p>
+                  </div>
+                  <span id="selectedIssueBadge" class="rounded-full bg-soft px-3 py-1 text-xs font-semibold text-primary">N/A</span>
+                </div>
+              </div>
+
+              <div class="rounded-[30px] border border-line/70 bg-panel p-6 shadow-card">
+                <div id="messageList" class="custom-scrollbar h-[420px] space-y-5 overflow-y-auto"></div>
+                <div class="mt-6 rounded-[28px] border border-line bg-soft p-3">
+                  <textarea id="messageInput" class="h-28 w-full resize-none border-0 bg-transparent px-3 py-3 text-sm leading-7 text-ink placeholder:text-muted focus:ring-0" placeholder="继续追问，例如：请给出这个问题的修改建议"></textarea>
+                  <div class="flex flex-wrap items-center justify-between gap-3 border-t border-line/70 px-3 pt-3">
+                    <div class="flex flex-wrap gap-2">
+                      <button class="quick-prompt rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-white" data-prompt="请总结最重要的三个修改点" type="button">总结三点</button>
+                      <button class="quick-prompt rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-white" data-prompt="请给出详细修改建议" type="button">修改建议</button>
+                      <button class="quick-prompt rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-white" data-prompt="这个问题会影响哪些业务流程" type="button">影响范围</button>
+                    </div>
+                    <button id="sendMessageBtn" class="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90" type="button">发送</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <div class="rounded-[30px] border border-line/70 bg-panel p-6 shadow-card">
+              <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">Run Summary</p>
+              <div class="mt-5 space-y-4 text-sm">
+                <div class="flex items-center justify-between">
+                  <span class="text-muted">当前 session</span>
+                  <span id="assistantSessionMeta" class="font-semibold text-ink">未创建</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-muted">已完成维度</span>
+                  <span id="assistantCompletedMeta" class="font-semibold text-ink">0</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-muted">当前进度</span>
+                  <span id="assistantProgressMeta" class="font-semibold text-ink">0%</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-[30px] border border-line/70 bg-panel p-6 shadow-card">
+              <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">Report Summary</p>
+              <p id="assistantSummaryText" class="mt-4 text-sm leading-7 text-muted">暂无报告摘要。</p>
+            </div>
+
+            <div class="rounded-[30px] border border-line/70 bg-panel p-6 shadow-card">
+              <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted">Issue Shortcuts</p>
+              <div id="assistantIssueShortcuts" class="mt-4 space-y-3"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:8005/api";
+    const STORAGE_KEY = "prd-review-single-page-shell";
+    const DIMENSION_FALLBACK_COUNT = 6;
+
+    const state = {
+      currentView: "workbench",
+      sessionId: null,
+      preset: "normal",
+      agentConfig: {
+        enable_dev_agent: true,
+        enable_design_agent: false,
+        enable_test_agent: true
+      },
+      uploadedFile: null,
+      reviewStatus: "ready",
+      progress: 0,
+      currentDimension: null,
+      completedDimensions: [],
+      report: null,
+      selectedIssueId: null,
+      conversationHistory: []
+    };
+
+    const pageMeta = {
+      workbench: {
+        title: "新建 PRD 评审任务",
+        description: "上传 PRD，配置评审模式和协作 Agent，直接在当前页面查看报告并继续追问。"
+      },
+      report: {
+        title: "评审报告",
+        description: "查看总分、维度分布、详细问题，并把任意问题直接送入同页助手。"
+      },
+      assistant: {
+        title: "报告摘要与评审助手",
+        description: "围绕当前报告和选中问题继续追问，不再发生页面跳转。"
+      }
+    };
+
+    const DOM = {};
+    let eventSource = null;
+    let radarChart = null;
+
+    function getDisplayDimensionName(dimension) {
+      const normalized = String(dimension || "").trim();
+      if (!normalized) {
+        return "未知维度";
+      }
+
+      const labels = {
+        completeness: "需求完整性",
+        reasonableness: "需求合理性",
+        user_value: "用户价值",
+        feasibility: "技术可行性",
+        risk: "实现风险",
+        priority_consistency: "优先级一致性",
+        others: "其他"
+      };
+
+      return labels[normalized] || normalized;
+    }
+
+    function getDimensionIcon(dimension) {
+      const displayName = getDisplayDimensionName(dimension);
+
+      if (displayName.includes("完整性")) return "inventory_2";
+      if (displayName.includes("可行性")) return "engineering";
+      if (displayName.includes("用户价值")) return "favorite";
+      if (displayName.includes("风险")) return "warning";
+      if (displayName.includes("架构")) return "lan";
+      if (displayName.includes("逻辑")) return "schema";
+      if (displayName.includes("合理性")) return "psychology";
+      if (displayName.includes("优先级")) return "low_priority";
+
+      return "category";
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      bindDom();
+      restoreState();
+      bindEvents();
+      applyViewState();
+      renderAll();
+      await syncSession();
+    });
+
+    function bindDom() {
+      DOM.fileInput = document.getElementById("fileInput");
+      DOM.uploadArea = document.getElementById("uploadArea");
+      DOM.uploadEmpty = document.getElementById("uploadEmpty");
+      DOM.uploadFilled = document.getElementById("uploadFilled");
+      DOM.uploadedFileName = document.getElementById("uploadedFileName");
+      DOM.uploadedFileDetail = document.getElementById("uploadedFileDetail");
+      DOM.globalStatusPill = document.getElementById("globalStatusPill");
+      DOM.pageTitle = document.getElementById("pageTitle");
+      DOM.pageDescription = document.getElementById("pageDescription");
+      DOM.sessionMeta = document.getElementById("sessionMeta");
+      DOM.presetMeta = document.getElementById("presetMeta");
+      DOM.progressMeta = document.getElementById("progressMeta");
+      DOM.progressBar = document.getElementById("progressBar");
+      DOM.progressPercent = document.getElementById("progressPercent");
+      DOM.progressBadge = document.getElementById("progressBadge");
+      DOM.terminalLog = document.getElementById("terminalLog");
+      DOM.reportEmptyState = document.getElementById("reportEmptyState");
+      DOM.reportContent = document.getElementById("reportContent");
+      DOM.reportTitle = document.getElementById("reportTitle");
+      DOM.reportMeta = document.getElementById("reportMeta");
+      DOM.totalScore = document.getElementById("totalScore");
+      DOM.scoreCircle = document.getElementById("scoreCircle");
+      DOM.recommendationBadge = document.getElementById("recommendationBadge");
+      DOM.summaryText = document.getElementById("summaryText");
+      DOM.dimensionCards = document.getElementById("dimensionCards");
+      DOM.dimensionCount = document.getElementById("dimensionCount");
+      DOM.issueCounts = document.getElementById("issueCounts");
+      DOM.issuesList = document.getElementById("issuesList");
+      DOM.radarChart = document.getElementById("radarChart");
+      DOM.assistantEmptyState = document.getElementById("assistantEmptyState");
+      DOM.assistantContent = document.getElementById("assistantContent");
+      DOM.assistantScoreCard = document.getElementById("assistantScoreCard");
+      DOM.assistantRecommendationCard = document.getElementById("assistantRecommendationCard");
+      DOM.assistantStatusCard = document.getElementById("assistantStatusCard");
+      DOM.selectedIssueTitle = document.getElementById("selectedIssueTitle");
+      DOM.selectedIssueDetail = document.getElementById("selectedIssueDetail");
+      DOM.selectedIssueBadge = document.getElementById("selectedIssueBadge");
+      DOM.messageList = document.getElementById("messageList");
+      DOM.messageInput = document.getElementById("messageInput");
+      DOM.assistantSessionMeta = document.getElementById("assistantSessionMeta");
+      DOM.assistantCompletedMeta = document.getElementById("assistantCompletedMeta");
+      DOM.assistantProgressMeta = document.getElementById("assistantProgressMeta");
+      DOM.assistantSummaryText = document.getElementById("assistantSummaryText");
+      DOM.assistantIssueShortcuts = document.getElementById("assistantIssueShortcuts");
+    }
+
+    function bindEvents() {
+      document.querySelectorAll("[data-view-target]").forEach((button) => {
+        button.addEventListener("click", () => switchView(button.dataset.viewTarget));
+      });
+
+      document.getElementById("headerWorkbenchBtn").addEventListener("click", () => switchView("workbench"));
+      document.getElementById("headerReportBtn").addEventListener("click", () => switchView("report"));
+      document.getElementById("headerAssistantBtn").addEventListener("click", () => switchView("assistant"));
+      document.getElementById("browseFileBtn").addEventListener("click", () => DOM.fileInput.click());
+      document.getElementById("changeFileBtn").addEventListener("click", () => DOM.fileInput.click());
+      document.getElementById("resumeReportBtn").addEventListener("click", () => switchView("report"));
+      document.getElementById("resumeAssistantBtn").addEventListener("click", () => switchView("assistant"));
+      document.getElementById("startReviewBtn").addEventListener("click", startReview);
+      document.getElementById("resetReviewBtn").addEventListener("click", resetSession);
+      document.getElementById("jumpReportBtn").addEventListener("click", () => switchView("report"));
+      document.getElementById("jumpAssistantBtn").addEventListener("click", () => switchView("assistant"));
+      document.getElementById("refreshReportBtn").addEventListener("click", async () => {
+        if (state.sessionId) {
+          await fetchReport(state.sessionId, true);
+        } else {
+          alert("当前没有可刷新的会话");
+        }
+      });
+      document.getElementById("shareReportBtn").addEventListener("click", shareReport);
+      document.getElementById("exportPdfBtn").addEventListener("click", exportPdf);
+      document.getElementById("reportEmptyWorkbenchBtn").addEventListener("click", () => switchView("workbench"));
+      document.getElementById("assistantEmptyWorkbenchBtn").addEventListener("click", () => switchView("workbench"));
+      document.getElementById("assistantShareBtn").addEventListener("click", shareReport);
+      document.getElementById("assistantExportBtn").addEventListener("click", exportPdf);
+      document.getElementById("assistantRerunBtn").addEventListener("click", handleRerun);
+      document.getElementById("sendMessageBtn").addEventListener("click", sendMessage);
+
+      DOM.fileInput.addEventListener("change", async (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (file) {
+          await handleFileUpload(file);
+        }
+      });
+
+      DOM.uploadArea.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        DOM.uploadArea.classList.add("drag-over");
+      });
+
+      DOM.uploadArea.addEventListener("dragleave", () => {
+        DOM.uploadArea.classList.remove("drag-over");
+      });
+
+      DOM.uploadArea.addEventListener("drop", async (event) => {
+        event.preventDefault();
+        DOM.uploadArea.classList.remove("drag-over");
+        const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+        if (file) {
+          await handleFileUpload(file);
+        }
+      });
+
+      document.querySelectorAll(".preset-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.preset = button.dataset.preset;
+          addLog(`CONFIG: preset switched to ${state.preset}`, "info");
+          persistState();
+          renderWorkbench();
+        });
+      });
+
+      document.querySelectorAll(".agent-toggle").forEach((button) => {
+        button.addEventListener("click", () => {
+          const key = button.dataset.agent;
+          state.agentConfig[key] = !state.agentConfig[key];
+          addLog(`CONFIG: ${key} = ${state.agentConfig[key]}`, "info");
+          persistState();
+          renderWorkbench();
+        });
+      });
+
+      DOM.messageInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          sendMessage();
+        }
+      });
+
+      document.querySelectorAll(".quick-prompt").forEach((button) => {
+        button.addEventListener("click", () => {
+          DOM.messageInput.value = button.dataset.prompt || "";
+          DOM.messageInput.focus();
+        });
+      });
+    }
+
+    function restoreState() {
+      try {
+        const raw = sessionStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          bootstrapAssistant();
+          return;
+        }
+
+        const saved = JSON.parse(raw);
+        Object.assign(state, {
+          currentView: saved.currentView || state.currentView,
+          sessionId: saved.sessionId || null,
+          preset: saved.preset || state.preset,
+          agentConfig: { ...state.agentConfig, ...(saved.agentConfig || {}) },
+          uploadedFile: saved.uploadedFile || null,
+          reviewStatus: saved.reviewStatus || state.reviewStatus,
+          progress: Number(saved.progress || 0),
+          currentDimension: saved.currentDimension || null,
+          completedDimensions: Array.isArray(saved.completedDimensions) ? saved.completedDimensions : [],
+          report: saved.report || null,
+          selectedIssueId: saved.selectedIssueId || null,
+          conversationHistory: Array.isArray(saved.conversationHistory) ? saved.conversationHistory : []
+        });
+      } catch (error) {
+        console.warn("Failed to restore frontend state", error);
+      }
+
+      bootstrapAssistant();
+    }
+
+    function persistState() {
+      const payload = {
+        currentView: state.currentView,
+        sessionId: state.sessionId,
+        preset: state.preset,
+        agentConfig: state.agentConfig,
+        uploadedFile: state.uploadedFile,
+        reviewStatus: state.reviewStatus,
+        progress: state.progress,
+        currentDimension: state.currentDimension,
+        completedDimensions: state.completedDimensions,
+        report: state.report,
+        selectedIssueId: state.selectedIssueId,
+        conversationHistory: state.conversationHistory.slice(-50)
+      };
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    }
+
+    function switchView(viewName) {
+      state.currentView = viewName;
+      applyViewState();
+      persistState();
+    }
+
+    function applyViewState() {
+      document.querySelectorAll(".view-panel").forEach((panel) => {
+        panel.classList.toggle("is-active", panel.dataset.view === state.currentView);
+      });
+
+      document.querySelectorAll(".nav-button").forEach((button) => {
+        button.classList.toggle("is-active", button.dataset.viewTarget === state.currentView);
+      });
+
+      const meta = pageMeta[state.currentView] || pageMeta.workbench;
+      DOM.pageTitle.textContent = meta.title;
+      DOM.pageDescription.textContent = meta.description;
+    }
+
+    function renderAll() {
+      renderGlobalMeta();
+      renderWorkbench();
+      renderReport();
+      renderAssistant();
+    }
+
+    function renderGlobalMeta() {
+      const statusLabelMap = {
+        ready: "就绪",
+        uploaded: "已上传",
+        reviewing: "评审中",
+        completed: "已完成",
+        error: "错误"
+      };
+
+      const statusColorMap = {
+        ready: "bg-emerald-500",
+        uploaded: "bg-amber-500",
+        reviewing: "bg-sky-500",
+        completed: "bg-emerald-500",
+        error: "bg-red-500"
+      };
+
+      DOM.globalStatusPill.innerHTML = `
+        <span class="h-2 w-2 rounded-full ${statusColorMap[state.reviewStatus] || "bg-stone-400"}"></span>
+        ${escapeHtml(statusLabelMap[state.reviewStatus] || state.reviewStatus || "未知")}
+      `;
+
+      DOM.sessionMeta.textContent = state.sessionId ? `${state.sessionId.slice(0, 8)}...` : "未创建";
+      DOM.presetMeta.textContent = state.preset;
+      DOM.progressMeta.textContent = `${Math.round(state.progress || 0)}%`;
+    }
+
+    function renderWorkbench() {
+      DOM.uploadEmpty.classList.toggle("hidden", Boolean(state.uploadedFile));
+      DOM.uploadFilled.classList.toggle("hidden", !state.uploadedFile);
+
+      if (state.uploadedFile) {
+        DOM.uploadedFileName.textContent = state.uploadedFile.filename || "已上传文件";
+        DOM.uploadedFileDetail.textContent = `${formatFileSize(state.uploadedFile.size || 0)} · session ${state.sessionId ? state.sessionId.slice(0, 8) : "--"}`;
+      }
+
+      document.querySelectorAll(".preset-btn").forEach((button) => {
+        button.classList.toggle("is-active", button.dataset.preset === state.preset);
+      });
+
+      document.querySelectorAll(".agent-toggle").forEach((button) => {
+        button.classList.toggle("is-active", Boolean(state.agentConfig[button.dataset.agent]));
+      });
+
+      updateProgress(state.progress || 0);
+    }
+
+    function renderReport() {
+      const report = state.report;
+      const hasReport = Boolean(report);
+
+      DOM.reportEmptyState.classList.toggle("hidden", hasReport);
+      DOM.reportContent.classList.toggle("hidden", !hasReport);
+
+      if (!hasReport) {
+        DOM.reportTitle.textContent = "评审报告";
+        DOM.reportMeta.textContent = state.sessionId ? "当前会话尚未产出可展示的报告。" : "等待评审结果。";
+        destroyRadarChart();
+        return;
+      }
+
+      DOM.reportTitle.textContent = `评审报告 · ${report.project_name || "PRD Review"}`;
+      DOM.reportMeta.textContent = `${report.version || "v1.0"} · ${report.review_date || new Date().toISOString().slice(0, 10)} · 模式 ${report.preset || state.preset}`;
+      const scoreMeta = getTotalScoreMeta(report.total_score);
+      DOM.totalScore.textContent = formatDisplayScore(scoreMeta.value);
+      document.getElementById("totalScoreMaxLabel").textContent = `/ ${scoreMeta.max}`;
+      DOM.summaryText.textContent = report.summary || "暂无摘要";
+      DOM.dimensionCount.textContent = `${(report.dimension_scores || []).length} 项`;
+
+      const recommendation = report.recommendation || "待定";
+      DOM.recommendationBadge.textContent = recommendation;
+      DOM.recommendationBadge.className = `mt-2 inline-flex rounded-full px-4 py-2 text-sm font-semibold ${
+        recommendation === "通过"
+          ? "bg-emerald-50 text-success"
+          : recommendation === "不通过"
+            ? "bg-red-50 text-danger"
+            : "bg-amber-50 text-[#8a5a12]"
+      }`;
+
+      const circumference = 2 * Math.PI * 68;
+      const offset = circumference - scoreMeta.progress * circumference;
+      DOM.scoreCircle.style.strokeDashoffset = String(Math.max(0, Math.min(circumference, offset)));
+
+      renderDimensionCards(report.dimension_scores || []);
+      renderRadarChart(report.dimension_scores || []);
+      renderIssues(report.issues || []);
+    }
+
+    function renderAssistant() {
+      const report = state.report;
+      const hasReport = Boolean(report);
+      DOM.assistantEmptyState.classList.toggle("hidden", hasReport);
+      DOM.assistantContent.classList.toggle("hidden", !hasReport);
+
+      if (!hasReport) {
+        DOM.messageList.innerHTML = "";
+        return;
+      }
+
+      DOM.assistantScoreCard.textContent = formatDisplayScore(getTotalScoreMeta(report.total_score).value);
+      DOM.assistantRecommendationCard.textContent = report.recommendation || "待定";
+      DOM.assistantStatusCard.textContent = readableStatus(state.reviewStatus);
+      DOM.assistantSessionMeta.textContent = state.sessionId ? `${state.sessionId.slice(0, 8)}...` : "未创建";
+      DOM.assistantCompletedMeta.textContent = String((state.completedDimensions || []).length);
+      DOM.assistantProgressMeta.textContent = `${Math.round(state.progress || 0)}%`;
+      DOM.assistantSummaryText.textContent = report.summary || "暂无报告摘要。";
+
+      const selectedIssue = getSelectedIssue();
+      if (selectedIssue) {
+        DOM.selectedIssueTitle.textContent = `${selectedIssue.display_id || selectedIssue.id} · ${selectedIssue.title || "未命名问题"}`;
+        DOM.selectedIssueDetail.textContent = `${getDisplayDimensionName(selectedIssue.dimension)} · ${selectedIssue.description || "暂无描述"}`;
+        DOM.selectedIssueBadge.textContent = selectedIssue.severity || "N/A";
+      } else {
+        DOM.selectedIssueTitle.textContent = "未选中问题";
+        DOM.selectedIssueDetail.textContent = "点击报告中的问题卡片后，这里会自动聚焦对应问题。";
+        DOM.selectedIssueBadge.textContent = "N/A";
+      }
+
+      renderMessages();
+      renderIssueShortcuts(report.issues || []);
+    }
+
+    function renderDimensionCards(dimensions) {
+      DOM.dimensionCards.innerHTML = dimensions.map((item) => `
+        <div class="rounded-3xl bg-soft p-4">
+          <div class="flex items-center justify-between">
+            <span class="material-symbols-outlined text-primary">${getDimensionIcon(item.dimension)}</span>
+            <span class="text-lg font-semibold text-primary">${Math.round(item.score || 0)}</span>
+          </div>
+          <p class="mt-3 text-sm font-semibold text-ink">${escapeHtml(getDisplayDimensionName(item.dimension))}</p>
+          <p class="mt-1 text-xs leading-6 text-muted">${Number(item.issues_count || 0)} 个问题</p>
+        </div>
+      `).join("");
+    }
+
+    function renderIssues(issues) {
+      const counts = { HIGH: 0, MEDIUM: 0, LOW: 0 };
+      issues.forEach((issue) => {
+        const severity = String(issue.severity || "LOW").toUpperCase();
+        if (counts[severity] !== undefined) {
+          counts[severity] += 1;
+        }
+      });
+
+      DOM.issueCounts.innerHTML = [
+        ["HIGH", "bg-red-50 text-danger"],
+        ["MEDIUM", "bg-amber-50 text-[#8a5a12]"],
+        ["LOW", "bg-soft text-primary"]
+      ].map(([key, className]) => `
+        <span class="rounded-full ${className} px-3 py-1 text-xs font-semibold">${key} ${counts[key] || 0}</span>
+      `).join("");
+
+      if (!issues.length) {
+        DOM.issuesList.innerHTML = '<div class="rounded-3xl bg-soft p-6 text-sm text-muted">当前没有问题卡片。</div>';
+        return;
+      }
+
+      DOM.issuesList.innerHTML = issues.map((issue) => {
+        const severity = String(issue.severity || "LOW").toUpperCase();
+        const border = severity === "HIGH" ? "border-red-200" : severity === "MEDIUM" ? "border-amber-200" : "border-line";
+        return `
+          <button class="issue-card w-full rounded-[28px] border ${border} bg-[#fffdf8] p-6 text-left shadow-sm transition" data-issue-id="${escapeHtml(issue.id || issue.display_id || "")}" type="button">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="text-xs font-semibold uppercase tracking-[0.25em] text-muted">${escapeHtml(issue.display_id || issue.id || "ISSUE")}</span>
+                  <span class="rounded-full bg-soft px-2 py-1 text-[11px] font-semibold text-primary">${escapeHtml(getDisplayDimensionName(issue.dimension))}</span>
+                </div>
+                <h4 class="mt-3 text-xl font-semibold text-ink">${escapeHtml(issue.title || "未命名问题")}</h4>
+                <p class="mt-2 text-sm leading-7 text-muted">${escapeHtml(issue.description || "暂无描述")}</p>
+                ${issue.suggestion ? `<p class="mt-3 text-sm leading-7 text-primary">建议：${escapeHtml(issue.suggestion)}</p>` : ""}
+              </div>
+              <span class="rounded-full ${severity === "HIGH" ? "bg-red-50 text-danger" : severity === "MEDIUM" ? "bg-amber-50 text-[#8a5a12]" : "bg-soft text-primary"} px-3 py-1 text-xs font-semibold">${escapeHtml(severity)}</span>
+            </div>
+          </button>
+        `;
+      }).join("");
+
+      DOM.issuesList.querySelectorAll("[data-issue-id]").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.selectedIssueId = button.dataset.issueId;
+          addLog(`REPORT: issue ${state.selectedIssueId} selected for assistant`, "info");
+          persistState();
+          renderAssistant();
+          switchView("assistant");
+        });
+      });
+    }
+
+    function renderIssueShortcuts(issues) {
+      if (!issues.length) {
+        DOM.assistantIssueShortcuts.innerHTML = '<p class="text-sm text-muted">暂无问题捷径。</p>';
+        return;
+      }
+
+      DOM.assistantIssueShortcuts.innerHTML = issues.slice(0, 6).map((issue) => `
+        <button class="assistant-issue-shortcut flex w-full items-start justify-between gap-3 rounded-2xl bg-soft px-4 py-3 text-left transition hover:bg-white" data-issue-id="${escapeHtml(issue.id || issue.display_id || "")}" type="button">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.25em] text-muted">${escapeHtml(issue.display_id || issue.id || "ISSUE")}</p>
+            <p class="mt-1 text-sm font-semibold text-ink">${escapeHtml(issue.title || "未命名问题")}</p>
+          </div>
+          <span class="material-symbols-outlined text-primary">north_east</span>
+        </button>
+      `).join("");
+
+      DOM.assistantIssueShortcuts.querySelectorAll(".assistant-issue-shortcut").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.selectedIssueId = button.dataset.issueId;
+          persistState();
+          renderAssistant();
+        });
+      });
+    }
+
+    function renderMessages() {
+      const messages = state.conversationHistory;
+      DOM.messageList.innerHTML = messages.map((message) => {
+        if (message.role === "user") {
+          return `
+            <div class="flex justify-end">
+              <div class="message-bubble max-w-2xl rounded-[24px] rounded-tr-md bg-primary px-5 py-4 text-white shadow-sm">
+                <p>${escapeHtml(message.content)}</p>
+              </div>
+            </div>
+          `;
+        }
+
+        const refs = Array.isArray(message.sourceRefs) && message.sourceRefs.length
+          ? `<div class="mt-3 rounded-2xl bg-white/70 p-3 text-xs leading-6 text-muted">${message.sourceRefs.map((ref) => `
+              <p><strong>${escapeHtml(ref.name || ref.type || "引用")}</strong>${ref.excerpt ? `: ${escapeHtml(ref.excerpt)}` : ""}</p>
+            `).join("")}</div>`
+          : "";
+
+        const actions = Array.isArray(message.suggestedActions) && message.suggestedActions.length
+          ? `<div class="mt-3 flex flex-wrap gap-2">${message.suggestedActions.map((action) => `
+              <button class="suggested-action rounded-full border border-line bg-white px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-soft" data-action-type="${escapeHtml(action.type || "")}" data-action-label="${escapeHtml(action.label || "")}" data-issue-id="${escapeHtml(action.issue_id || "")}" type="button">${escapeHtml(action.label || action.type || "动作")}</button>
+            `).join("")}</div>`
+          : "";
+
+        return `
+          <div class="flex justify-start">
+            <div class="message-bubble max-w-3xl rounded-[24px] rounded-tl-md bg-soft px-5 py-4 text-ink shadow-sm">
+              <p>${escapeHtml(message.content)}</p>
+              ${refs}
+              ${actions}
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      DOM.messageList.querySelectorAll(".suggested-action").forEach((button) => {
+        button.addEventListener("click", () => handleSuggestedAction(button));
+      });
+
+      DOM.messageList.scrollTop = DOM.messageList.scrollHeight;
+    }
+
+    function handleSuggestedAction(button) {
+      const actionType = button.dataset.actionType;
+      const issueId = button.dataset.issueId;
+      if (actionType === "focus_issue" && issueId) {
+        state.selectedIssueId = issueId;
+        persistState();
+        renderAssistant();
+        DOM.messageInput.value = `请详细说明问题 ${issueId}`;
+        DOM.messageInput.focus();
+        return;
+      }
+
+      if (actionType === "rerun") {
+        handleRerun();
+        return;
+      }
+
+      DOM.messageInput.value = button.dataset.actionLabel || "";
+      DOM.messageInput.focus();
+    }
+
+    async function syncSession() {
+      if (!state.sessionId) {
+        return;
+      }
+
+      try {
+        const statusResponse = await fetch(`${API_BASE}/review/status/${state.sessionId}`);
+        if (statusResponse.ok) {
+          const statusData = await statusResponse.json();
+          state.reviewStatus = normalizeStatus(statusData.status);
+          state.progress = Number(statusData.progress || 0);
+          state.currentDimension = statusData.current_dimension || null;
+          state.completedDimensions = Array.isArray(statusData.completed_dimensions) ? statusData.completed_dimensions : [];
+          persistState();
+          renderAll();
+        }
+      } catch (error) {
+        addLog(`STATUS: failed to load session status (${error.message})`, "warning");
+      }
+
+      if (state.reviewStatus === "completed" || state.report) {
+        await fetchReport(state.sessionId, false);
+      } else if (state.reviewStatus === "reviewing" || state.reviewStatus === "uploaded") {
+        addLog(`SESSION: restored ${state.sessionId.slice(0, 8)} with status ${state.reviewStatus}`, "info");
+        if (state.reviewStatus === "reviewing") {
+          connectSse();
+        }
+      }
+    }
+
+    async function handleFileUpload(file) {
+      const extension = `.${file.name.split(".").pop().toLowerCase()}`;
+      if (![".md", ".docx"].includes(extension)) {
+        alert("仅支持 .md 和 .docx 文件");
+        return;
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        alert("文件大小不能超过 10MB");
+        return;
+      }
+
+      state.reviewStatus = "uploaded";
+      renderAll();
+      addLog(`UPLOAD: starting upload for ${file.name}`, "progress");
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const response = await fetch(`${API_BASE}/review/upload`, {
+          method: "POST",
+          body: formData
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || "Upload failed");
+        }
+
+        state.sessionId = data.session_id;
+        state.uploadedFile = {
+          filename: data.filename,
+          file_type: data.file_type,
+          size: data.size
+        };
+        state.reviewStatus = "uploaded";
+        state.progress = 0;
+        state.currentDimension = null;
+        state.completedDimensions = [];
+        state.report = null;
+        state.selectedIssueId = null;
+        state.conversationHistory = [];
+
+        bootstrapAssistant();
+        persistState();
+        renderAll();
+
+        addLog(`UPLOAD: ${data.filename} uploaded successfully`, "success");
+        addLog(`SESSION: ${data.session_id}`, "success");
+      } catch (error) {
+        state.reviewStatus = "error";
+        persistState();
+        renderAll();
+        addLog(`ERROR: upload failed - ${error.message}`, "error");
+        alert(error.message);
+      }
+    }
+
+    async function startReview() {
+      if (!state.sessionId) {
+        alert("请先上传文档");
+        return;
+      }
+
+      try {
+        await fetch(`${API_BASE}/review/config`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            session_id: state.sessionId,
+            config: state.agentConfig
+          })
+        });
+        addLog("CONFIG: agent config saved", "success");
+      } catch (error) {
+        addLog(`CONFIG: save failed (${error.message})`, "warning");
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/review/start`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            session_id: state.sessionId,
+            preset: state.preset
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || "Failed to start review");
+        }
+
+        state.reviewStatus = "reviewing";
+        state.progress = 0;
+        state.currentDimension = null;
+        state.completedDimensions = [];
+        state.report = null;
+        persistState();
+        renderAll();
+
+        addLog(`REVIEW: started with preset ${state.preset}`, "progress");
+        connectSse();
+      } catch (error) {
+        state.reviewStatus = "error";
+        persistState();
+        renderAll();
+        addLog(`ERROR: failed to start review - ${error.message}`, "error");
+        alert(error.message);
+      }
+    }
+
+    function connectSse() {
+      if (!state.sessionId) {
+        return;
+      }
+
+      if (eventSource) {
+        eventSource.close();
+      }
+
+      eventSource = new EventSource(`${API_BASE}/review/stream/${state.sessionId}`);
+
+      eventSource.addEventListener("connected", () => {
+        addLog("STREAM: connected", "success");
+      });
+
+      eventSource.addEventListener("streaming", (event) => {
+        const data = safeJsonParse(event.data);
+        if (data && data.content) {
+          addLog(data.content, "info");
+        }
+      });
+
+      eventSource.addEventListener("dimension_start", (event) => {
+        const data = safeJsonParse(event.data) || {};
+        state.reviewStatus = "reviewing";
+        state.currentDimension = data.dimension || null;
+        persistState();
+        renderAll();
+        addLog(`DIMENSION: starting ${data.dimension || "unknown"}`, "progress");
+      });
+
+      eventSource.addEventListener("dimension_complete", (event) => {
+        const data = safeJsonParse(event.data) || {};
+        if (data.dimension && !state.completedDimensions.includes(data.dimension)) {
+          state.completedDimensions.push(data.dimension);
+        }
+
+        const total = Math.max(DIMENSION_FALLBACK_COUNT, state.completedDimensions.length);
+        state.progress = Math.min(99, Math.round((state.completedDimensions.length / total) * 100));
+        persistState();
+        renderAll();
+        addLog(`DIMENSION: ${data.dimension || "unknown"} complete (score ${data.score || 0})`, "success");
+      });
+
+      eventSource.addEventListener("complete", async (event) => {
+        const data = safeJsonParse(event.data) || {};
+        state.reviewStatus = "completed";
+        state.progress = 100;
+        state.report = data;
+        persistState();
+        renderAll();
+        addLog(`REVIEW: completed with total score ${data.total_score || 0}`, "success");
+        bootstrapAssistant();
+        await fetchReport(state.sessionId, false);
+        switchView("report");
+        eventSource.close();
+      });
+
+      eventSource.addEventListener("error", (event) => {
+        if (!event.data) {
+          return;
+        }
+        const data = safeJsonParse(event.data) || {};
+        state.reviewStatus = "error";
+        persistState();
+        renderAll();
+        addLog(`ERROR: ${data.message || "stream failed"}`, "error");
+      });
+
+      eventSource.onerror = () => {
+        if (state.reviewStatus === "reviewing") {
+          addLog("STREAM: waiting for next server event", "warning");
+        }
+      };
+    }
+
+    async function fetchReport(sessionId, userInitiated) {
+      try {
+        const response = await fetch(`${API_BASE}/review/report/${sessionId}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || "Failed to load report");
+        }
+
+        state.report = data;
+        state.reviewStatus = "completed";
+        state.progress = 100;
+        persistState();
+        bootstrapAssistant();
+        renderAll();
+        if (userInitiated) {
+          addLog("REPORT: refreshed from backend", "success");
+        }
+      } catch (error) {
+        if (userInitiated) {
+          alert(error.message);
+        }
+        addLog(`REPORT: ${error.message}`, "warning");
+      }
+    }
+
+    async function sendMessage() {
+      const message = DOM.messageInput.value.trim();
+      if (!message) {
+        return;
+      }
+
+      if (!state.sessionId) {
+        alert("请先创建评审会话");
+        return;
+      }
+
+      const userMessage = {
+        id: `user-${Date.now()}`,
+        role: "user",
+        content: message
+      };
+
+      state.conversationHistory.push(userMessage);
+      DOM.messageInput.value = "";
+      persistState();
+      renderAssistant();
+      addLoadingMessage();
+
+      try {
+        const response = await fetch(`${API_BASE}/review/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            session_id: state.sessionId,
+            message,
+            selected_issue_id: state.selectedIssueId,
+            context_mode: "default"
+          })
+        });
+
+        const data = await response.json();
+        removeLoadingMessage();
+
+        if (!response.ok) {
+          throw new Error(data.detail || "Chat request failed");
+        }
+
+        state.conversationHistory.push({
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: data.message || "助手暂时无法给出回答。",
+          sourceRefs: data.source_refs || [],
+          suggestedActions: data.suggested_actions || []
+        });
+
+        persistState();
+        renderAssistant();
+      } catch (error) {
+        removeLoadingMessage();
+        state.conversationHistory.push({
+          id: `assistant-error-${Date.now()}`,
+          role: "assistant",
+          content: `抱歉，发生错误：${error.message}`
+        });
+        persistState();
+        renderAssistant();
+      }
+    }
+
+    async function resetSession() {
+      if (!state.sessionId) {
+        clearSessionState();
+        renderAll();
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/review/reset?session_id=${state.sessionId}`, {
+          method: "POST"
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || "Reset failed");
+        }
+        addLog("RESET: session cleared on backend", "success");
+      } catch (error) {
+        addLog(`RESET: ${error.message}`, "warning");
+      }
+
+      clearSessionState();
+      renderAll();
+    }
+
+    async function handleRerun() {
+      await resetSession();
+      switchView("workbench");
+    }
+
+    async function shareReport() {
+      if (!state.sessionId) {
+        alert("当前没有可分享的报告");
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/review/share?session_id=${state.sessionId}`, {
+          method: "POST"
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || "生成分享链接失败");
+        }
+
+        const shareUrl = `http://127.0.0.1:8005/api/review/share/${data.share_token}`;
+        await navigator.clipboard.writeText(shareUrl);
+        addLog(`SHARE: copied ${shareUrl}`, "success");
+        alert(`分享链接已复制到剪贴板：\n${shareUrl}`);
+      } catch (error) {
+        addLog(`SHARE: ${error.message}`, "error");
+        alert(error.message);
+      }
+    }
+
+    function exportPdf() {
+      if (!state.sessionId) {
+        alert("当前没有可导出的报告");
+        return;
+      }
+
+      window.open(`${API_BASE}/review/export/pdf/${state.sessionId}`, "_blank", "noopener");
+    }
+
+    function clearSessionState() {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+
+      state.sessionId = null;
+      state.uploadedFile = null;
+      state.reviewStatus = "ready";
+      state.progress = 0;
+      state.currentDimension = null;
+      state.completedDimensions = [];
+      state.report = null;
+      state.selectedIssueId = null;
+      state.conversationHistory = [];
+      DOM.fileInput.value = "";
+      bootstrapAssistant();
+      persistState();
+      addLog("STATE: reset to initial ready state", "info");
+    }
+
+    function bootstrapAssistant() {
+      if (!state.conversationHistory.length) {
+        const summary = state.report
+          ? `当前评审已完成，综合评分 ${formatDisplayScore(getTotalScoreMeta(state.report.total_score).value)}/${getTotalScoreMeta(state.report.total_score).max}，建议：${state.report.recommendation || "待定"}。`
+          : "您好，我是 PRD 评审助手。上传并完成评审后，我会基于报告继续回答追问。";
+
+        state.conversationHistory = [
+          {
+            id: "assistant-welcome",
+            role: "assistant",
+            content: summary
+          }
+        ];
+      }
+    }
+
+    function getSelectedIssue() {
+      if (!state.report || !state.selectedIssueId) {
+        return null;
+      }
+
+      return (state.report.issues || []).find((issue) => {
+        return [issue.id, issue.display_id, issue.issue_key].includes(state.selectedIssueId);
+      }) || null;
+    }
+
+    function renderRadarChart(dimensions) {
+      if (!window.Chart) {
+        return;
+      }
+
+      destroyRadarChart();
+
+      radarChart = new window.Chart(DOM.radarChart.getContext("2d"), {
+        type: "radar",
+        data: {
+          labels: dimensions.map((item) => getDisplayDimensionName(item.dimension)),
+          datasets: [{
+            label: "维度评分",
+            data: dimensions.map((item) => Number(item.score || 0)),
+            backgroundColor: "rgba(239, 108, 0, 0.18)",
+            borderColor: "#ef6c00",
+            pointBackgroundColor: "#d9a441",
+            pointBorderColor: "#fff",
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            r: {
+              beginAtZero: true,
+              max: 10,
+              ticks: {
+                stepSize: 2,
+                color: "#6b675f",
+                backdropColor: "transparent"
+              },
+              grid: {
+                color: "rgba(107, 103, 95, 0.18)"
+              },
+              angleLines: {
+                color: "rgba(107, 103, 95, 0.18)"
+              },
+              pointLabels: {
+                color: "#ef6c00",
+                font: { size: 11, weight: "600" }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function destroyRadarChart() {
+      if (radarChart) {
+        radarChart.destroy();
+        radarChart = null;
+      }
+    }
+
+    function updateProgress(value) {
+      const percent = Math.max(0, Math.min(100, Math.round(value || 0)));
+      DOM.progressBar.style.width = `${percent}%`;
+      DOM.progressPercent.textContent = `${percent}%`;
+
+      if (state.reviewStatus === "reviewing") {
+        DOM.progressBadge.textContent = "RUNNING";
+        DOM.progressBadge.className = "rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700";
+      } else if (state.reviewStatus === "completed") {
+        DOM.progressBadge.textContent = "COMPLETE";
+        DOM.progressBadge.className = "rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-success";
+      } else if (state.reviewStatus === "error") {
+        DOM.progressBadge.textContent = "ERROR";
+        DOM.progressBadge.className = "rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-danger";
+      } else if (state.reviewStatus === "uploaded") {
+        DOM.progressBadge.textContent = "UPLOADED";
+        DOM.progressBadge.className = "rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-[#8a5a12]";
+      } else {
+        DOM.progressBadge.textContent = "WAITING";
+        DOM.progressBadge.className = "rounded-full bg-soft px-3 py-1 text-xs font-semibold text-primary";
+      }
+    }
+
+    function addLog(message, level) {
+      const colorMap = {
+        info: "text-stone-300",
+        success: "text-emerald-300",
+        error: "text-rose-300",
+        warning: "text-amber-300",
+        progress: "text-sky-300",
+        muted: "text-stone-400"
+      };
+
+      const line = document.createElement("div");
+      line.className = `terminal-line mb-1 ${colorMap[level] || colorMap.info}`;
+      line.textContent = `[${formatTime()}] ${message}`;
+      DOM.terminalLog.appendChild(line);
+      DOM.terminalLog.scrollTop = DOM.terminalLog.scrollHeight;
+    }
+
+    function addLoadingMessage() {
+      removeLoadingMessage();
+      const wrapper = document.createElement("div");
+      wrapper.id = "assistant-loading";
+      wrapper.className = "flex justify-start";
+      wrapper.innerHTML = `
+        <div class="message-bubble max-w-3xl rounded-[24px] rounded-tl-md bg-soft px-5 py-4 text-ink shadow-sm">
+          <p class="animate-pulse">正在思考...</p>
+        </div>
+      `;
+      DOM.messageList.appendChild(wrapper);
+      DOM.messageList.scrollTop = DOM.messageList.scrollHeight;
+    }
+
+    function removeLoadingMessage() {
+      const loading = document.getElementById("assistant-loading");
+      if (loading) {
+        loading.remove();
+      }
+    }
+
+    function readableStatus(status) {
+      const map = {
+        ready: "就绪",
+        uploaded: "已上传",
+        reviewing: "评审中",
+        completed: "已完成",
+        error: "错误"
+      };
+      return map[status] || status || "未知";
+    }
+
+    function getTotalScoreMeta(score) {
+      const numeric = Number(score || 0);
+      if (!Number.isFinite(numeric)) {
+        return { value: 0, max: 100, progress: 0 };
+      }
+
+      const max = numeric <= 10 ? 10 : 100;
+      const clamped = Math.max(0, Math.min(max, numeric));
+      return {
+        value: clamped,
+        max,
+        progress: max === 0 ? 0 : clamped / max
+      };
+    }
+
+    function formatDisplayScore(value) {
+      if (!Number.isFinite(value)) {
+        return "0";
+      }
+
+      return Number.isInteger(value) ? String(value) : value.toFixed(1);
+    }
+
+    function normalizeStatus(status) {
+      if (status === "started") {
+        return "reviewing";
+      }
+      if (status === "uploaded") {
+        return "uploaded";
+      }
+      if (status === "completed") {
+        return "completed";
+      }
+      if (status === "error") {
+        return "error";
+      }
+      return "ready";
+    }
+
+    function formatTime() {
+      const now = new Date();
+      return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    function safeJsonParse(value) {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return null;
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = String(text == null ? "" : text);
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

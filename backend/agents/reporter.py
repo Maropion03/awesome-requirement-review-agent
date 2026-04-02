@@ -9,6 +9,13 @@ from typing import Optional, Dict, Any, List
 from crewai import Agent
 
 from utils.minimax_client import get_minimax_client
+from utils.report_utils import (
+    calculate_weighted_total_score,
+    determine_recommendation,
+    format_report_summary,
+    normalize_dimension_score,
+    sort_and_renumber_issues,
+)
 from config.prompts import REPORTER_PROMPT, PRESETS
 
 
@@ -72,33 +79,13 @@ class ReporterAgent:
         review_results: Dict[str, Dict[str, Any]],
         preset: str = "normal",
     ) -> float:
-        """Calculate weighted total score based on preset."""
+        """Calculate weighted total score based on preset on a 0-100 scale."""
         preset_config = PRESETS.get(preset, PRESETS["normal"])
-
-        total_score = 0.0
-        weight_sum = 0.0
-
-        for dimension, result in review_results.items():
-            if dimension in preset_config:
-                weight = preset_config[dimension]
-            else:
-                weight = preset_config.get("others", 0.1)
-
-            total_score += result.get("score", 0) * weight
-            weight_sum += weight
-
-        if weight_sum > 0:
-            return round(total_score / weight_sum * 10, 1)
-        return 0.0
+        return calculate_weighted_total_score(review_results, preset_config)
 
     def determine_recommendation(self, total_score: float) -> str:
         """Determine recommendation based on total score."""
-        if total_score >= 8.0:
-            return "APPROVE"
-        elif total_score >= 6.0:
-            return "MODIFY"
-        else:
-            return "REJECT"
+        return determine_recommendation(total_score)
 
     def parse_result(self, result: str) -> Dict[str, Any]:
         """Parse the report result from LLM output."""
@@ -120,6 +107,59 @@ class ReporterAgent:
                 "issues": [],
                 "summary": f"报告生成失败: {result[:200]}",
             }
+
+    def generate_report(
+        self,
+        review_results: Dict[str, Dict[str, Any]],
+        preset: str = "normal",
+    ) -> Dict[str, Any]:
+        """Generate a deterministic final report from reviewer outputs."""
+        total_score = self.calculate_weighted_score(review_results, preset)
+        recommendation = self.determine_recommendation(total_score)
+
+        all_issues = []
+        dimension_scores = []
+
+        for dimension_key, result in review_results.items():
+            dimension_name = result.get("dimension", dimension_key)
+            issues = result.get("issues", [])
+            normalized_score = self._normalize_score(result.get("score", 0))
+            for issue in issues:
+                all_issues.append({
+                    **issue,
+                    "dimension": dimension_name,
+                })
+
+            dimension_scores.append({
+                "dimension": dimension_name,
+                "score": normalized_score,
+                "weight": PRESETS.get(preset, PRESETS["normal"]).get(
+                    dimension_key,
+                    PRESETS.get(preset, PRESETS["normal"]).get("others", 0.1),
+                ),
+                "issues_count": len(issues),
+                "reasoning": result.get("reasoning", ""),
+            })
+
+        all_issues = sort_and_renumber_issues(all_issues)
+
+        summary = format_report_summary(total_score, recommendation, len(all_issues))
+
+        return {
+            "project_name": "PRD Review",
+            "version": "v1.0",
+            "review_date": str(date.today()),
+            "preset": preset,
+            "total_score": total_score,
+            "recommendation": recommendation,
+            "dimension_scores": dimension_scores,
+            "issues": all_issues,
+            "summary": summary,
+        }
+
+    def _normalize_score(self, score: Any) -> float:
+        """Clamp raw scores into the expected 0-10 range."""
+        return normalize_dimension_score(score)
 
     def get_agent(self) -> Agent:
         """Get the underlying CrewAI Agent."""

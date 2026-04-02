@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html class="light" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PRD 评审报告</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "surface": "#fef8f1",
+        "on-error-container": "#93000a",
+        "secondary-fixed": "#eddcfd",
+        "on-tertiary-fixed": "#281800",
+        "surface-bright": "#fef8f1",
+        "surface-variant": "#e7e2db",
+        "surface-container-lowest": "#ffffff",
+        "outline": "#7b757d",
+        "inverse-primary": "#d1c0e1",
+        "primary": "#3a2e47",
+        "surface-container-low": "#f8f3ec",
+        "on-primary-container": "#c3b2d3",
+        "tertiary-fixed-dim": "#f4bd69",
+        "secondary": "#665974",
+        "on-error": "#ffffff",
+        "tertiary-container": "#654300",
+        "background": "#fef8f1",
+        "error-container": "#ffdad6",
+        "tertiary": "#482e00",
+        "surface-container": "#f3ede6",
+        "outline-variant": "#cbc4cd",
+        "secondary-fixed-dim": "#d1c0e0",
+        "surface-container-high": "#ede7e0",
+        "surface-dim": "#ded9d3",
+        "primary-fixed": "#eedcfd",
+        "primary-container": "#51445f",
+        "inverse-on-surface": "#f5f0e9",
+        "on-primary": "#ffffff",
+        "error": "#ba1a1a",
+        "on-background": "#1d1b17",
+        "on-secondary": "#ffffff",
+        "on-secondary-fixed-variant": "#4e425c",
+        "on-surface": "#1d1b17",
+        "inverse-surface": "#32302c",
+        "on-tertiary-container": "#e6b05e",
+        "on-secondary-container": "#6c5f7a",
+        "primary-fixed-dim": "#d1c0e1",
+        "surface-container-highest": "#e7e2db",
+        "on-surface-variant": "#4a454c",
+        "on-secondary-fixed": "#21172e",
+        "on-tertiary-fixed-variant": "#614000",
+        "secondary-container": "#eddcfd",
+        "surface-tint": "#675975",
+        "on-primary-fixed-variant": "#4e415c",
+        "on-tertiary": "#ffffff",
+        "tertiary-fixed": "#ffddb0",
+        "on-primary-fixed": "#22162f"
+      },
+      fontFamily: {
+        "headline": ["Inter", "sans-serif"],
+        "body": ["Inter", "sans-serif"],
+        "label": ["Inter", "sans-serif"],
+        "satoshi": ["Inter", "sans-serif"]
+      },
+      borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "1rem", "full": "9999px"},
+    },
+  },
+}
+</script>
+<style>
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+body { background-color: #fef8f1; color: #1d1b17; font-family: 'Inter', sans-serif; }
+.editorial-shadow { box-shadow: 0 12px 40px rgba(31, 24, 23, 0.06); }
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+canvas { max-width: 100%; }
+</style>
+</head>
+<body class="antialiased min-h-screen flex flex-col overflow-hidden">
+<!-- SideNavBar -->
+<aside class="flex flex-col fixed left-0 top-0 h-full w-64 bg-[#f8f3ec] p-4 z-50">
+<div class="px-3 py-6 mb-8 text-center">
+<h1 class="font-['Newsreader',_serif] font-semibold text-[#3a2e47] text-2xl italic tracking-tight">PRD 评审工作台</h1>
+</div>
+<nav class="space-y-2 flex-1">
+<a class="flex items-center gap-3 px-4 py-3 text-stone-500 hover:text-[#3a2e47] hover:bg-white/50 transition-all duration-200 rounded-lg font-medium" href="#" onclick="navigateToWorkbench(event)">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-sm">工作台</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#3a2e47] bg-white shadow-sm rounded-lg font-medium" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="text-sm">评审报告</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-stone-500 hover:text-[#3a2e47] hover:bg-white/50 transition-all duration-200 rounded-lg font-medium" href="#" onclick="navigateToAssistant(event)">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="text-sm">评审助手</span>
+</a>
+</nav>
+</aside>
+
+<!-- Main Content -->
+<main class="ml-64 flex-1 flex flex-col overflow-hidden">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center px-8 py-4 sticky top-0 z-40 bg-[#fdf9f1]/80 backdrop-blur-xl border-b border-outline-variant/10">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-1 bg-surface-container-low px-4 py-2 rounded-full border border-outline-variant/10">
+<span class="material-symbols-outlined text-stone-400 text-sm">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-64 placeholder-stone-400" placeholder="搜索文档或报告..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="px-2.5 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold tracking-wider uppercase">Beta</span>
+</div>
+</header>
+
+<!-- Canvas -->
+<div class="px-6 py-6 space-y-8 flex-1 w-full overflow-y-auto">
+<!-- Top Header -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-end mb-8">
+<div class="md:col-span-2">
+<h1 id="reportTitle" class="text-3xl font-satoshi font-bold tracking-tighter text-primary">评审报告</h1>
+<p id="reportMeta" class="text-stone-500 text-sm mt-1">加载中...</p>
+</div>
+<div class="flex flex-col items-end gap-3">
+<div class="flex gap-2">
+<button id="downloadBtn" class="flex items-center gap-2 px-4 py-2 rounded-full border border-outline-variant/30 bg-surface-container-lowest editorial-shadow hover:bg-surface-container-low transition-all text-xs font-medium">
+<span class="material-symbols-outlined text-[16px]">download</span>
+                    下载
+                </button>
+<button id="exportBtn" class="flex items-center gap-2 px-4 py-2 rounded-full border border-outline-variant/30 bg-surface-container-lowest editorial-shadow hover:bg-surface-container-low transition-all text-xs font-medium">
+<span class="material-symbols-outlined text-[16px]">export_notes</span>
+                    导出
+                </button>
+<button id="rerunBtn" class="flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-on-primary hover:bg-primary-container transition-all text-xs font-medium shadow-lg shadow-primary/10">
+<span class="material-symbols-outlined text-[16px]">refresh</span>
+                    重审
+                </button>
+</div>
+</div>
+</div>
+
+<!-- Hero Section: Score & Summary -->
+<div id="heroSection" class="grid grid-cols-1 lg:grid-cols-3 gap-10 mb-16">
+<!-- Score Circle -->
+<div class="lg:col-span-1 bg-surface-container-lowest p-10 rounded-xl editorial-shadow flex flex-col items-center justify-center relative overflow-hidden">
+<div class="absolute -top-12 -right-12 w-48 h-48 bg-primary/5 rounded-full blur-3xl"></div>
+<div class="relative w-44 h-44 flex items-center justify-center">
+<svg class="w-full h-full transform -rotate-90">
+<circle class="text-surface-container-high" cx="88" cy="88" fill="transparent" r="80" stroke="currentColor" stroke-width="8"></circle>
+<circle id="scoreCircle" class="text-primary" cx="88" cy="88" fill="transparent" r="80" stroke="currentColor" stroke-dasharray="502" stroke-dashoffset="502" stroke-width="8"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span id="totalScore" class="text-6xl font-satoshi font-bold text-primary tracking-tighter">--</span>
+<span class="text-xs uppercase tracking-widest text-on-surface-variant font-bold">/ 100</span>
+</div>
+</div>
+<p class="mt-8 text-sm font-medium text-on-surface-variant text-center px-6 leading-relaxed">基于架构完整性和业务对齐度的产品总体质量得分</p>
+</div>
+
+<!-- Summary -->
+<div class="lg:col-span-2 bg-surface-container-lowest p-10 rounded-xl editorial-shadow flex flex-col justify-between">
+<div class="">
+<div class="flex items-center justify-between mb-6">
+<h3 class="font-satoshi font-semibold text-xl tracking-tight text-primary">结论摘要</h3>
+<span id="recommendationBadge" class="px-5 py-2 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-xs font-bold uppercase tracking-wider">加载中</span>
+</div>
+<p id="summaryText" class="text-on-surface-variant leading-relaxed text-[15px] mb-8">
+                    正在加载报告摘要...
+                </p>
+</div>
+<div class="flex gap-6 pt-8 border-t border-surface-container-high">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-tertiary text-[22px]" style="font-variation-settings: 'FILL' 1;">stars</span>
+<span class="text-xs font-bold text-on-surface tracking-tight">专家共识</span>
+</div>
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-primary text-[22px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span class="text-xs font-bold text-on-surface tracking-tight">安全审核通过</span>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Dimension Breakdown + Radar Chart -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
+<!-- Radar Chart -->
+<div class="bg-surface-container-lowest p-6 rounded-xl editorial-shadow">
+<h3 class="text-sm font-bold text-primary uppercase tracking-wider mb-6">维度分布雷达图</h3>
+<div class="flex items-center justify-center" style="height: 300px;">
+<canvas id="radarChart"></canvas>
+</div>
+</div>
+
+<!-- Dimension Cards -->
+<div class="bg-surface-container-lowest p-6 rounded-xl editorial-shadow">
+<h3 class="text-sm font-bold text-primary uppercase tracking-wider mb-6">各维度评分</h3>
+<div id="dimensionCards" class="grid grid-cols-2 gap-4">
+<!-- Dimension cards will be inserted here -->
+</div>
+</div>
+</div>
+
+<!-- Detailed Issues Section -->
+<div id="issuesSection" class="mb-24">
+<div class="flex items-center justify-between mb-10">
+<h2 class="text-3xl font-satoshi font-bold text-primary tracking-tight">详细问题</h2>
+<div id="issueCounts" class="flex items-center gap-6">
+<!-- Issue count badges will be inserted here -->
+</div>
+</div>
+<div id="issuesList" class="space-y-8">
+<!-- Issues will be inserted here -->
+</div>
+</div>
+
+<!-- Empty State -->
+<div id="emptyState" class="hidden text-center py-20">
+<div class="w-20 h-20 bg-surface-container-low rounded-full flex items-center justify-center mx-auto mb-6">
+<span class="material-symbols-outlined text-stone-400 text-4xl">description</span>
+</div>
+<h3 class="text-xl font-semibold text-primary mb-2">暂无报告数据</h3>
+<p class="text-stone-500 mb-6">请先在工作台创建评审任务</p>
+<button onclick="navigateToWorkbench(event)" class="bg-primary text-white px-6 py-3 rounded-full font-medium hover:bg-primary-container transition-all">
+                    返回工作台
+                </button>
+</div>
+</div>
+</main>
+
+<script>
+const API_BASE = 'http://localhost:8000/api';
+let radarChart = null;
+
+// ========== Init ==========
+document.addEventListener('DOMContentLoaded', () => {
+  loadReport();
+  setupEventListeners();
+});
+
+// ========== Load Report ==========
+async function loadReport() {
+  const sessionId = sessionStorage.getItem('lastSessionId') || getQueryParam('session');
+
+  if (!sessionId) {
+    showEmptyState();
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/review/report/${sessionId}`);
+
+    if (!response.ok) {
+      if (response.status === 400) {
+        showEmptyState('评审尚未完成，请稍后再试');
+      } else {
+        throw new Error('Failed to load report');
+      }
+      return;
+    }
+
+    const report = await response.json();
+    renderReport(report);
+
+  } catch (error) {
+    console.error('Error loading report:', error);
+    showEmptyState('加载报告失败: ' + error.message);
+  }
+}
+
+function showEmptyState(message = '请先在工作台创建评审任务') {
+  document.getElementById('heroSection').style.display = 'none';
+  document.getElementById('issuesSection').style.display = 'none';
+  document.getElementById('emptyState').classList.remove('hidden');
+  document.querySelector('#emptyState p').textContent = message;
+}
+
+// ========== Render Report ==========
+function renderReport(report) {
+  // Title & Meta
+  document.getElementById('reportTitle').textContent = `评审报告：${report.project_name || 'PRD Review'}`;
+  document.getElementById('reportMeta').textContent = `${report.version || 'v1.0'} • ${report.review_date || new Date().toLocaleDateString()} • 模式: ${report.preset || 'normal'}`;
+
+  // Score Circle
+  const score = Math.round(report.total_score || 0);
+  const circumference = 2 * Math.PI * 80; // r=80
+  const offset = circumference - (score / 100) * circumference;
+  document.getElementById('scoreCircle').style.strokeDashoffset = offset;
+  document.getElementById('totalScore').textContent = score;
+
+  // Recommendation Badge
+  const badge = document.getElementById('recommendationBadge');
+  badge.textContent = report.recommendation || 'PENDING';
+  if (report.recommendation === 'PASS' || report.recommendation === '通过') {
+    badge.className = 'px-5 py-2 rounded-full bg-green-100 text-green-700 text-xs font-bold uppercase tracking-wider';
+  } else if (report.recommendation === 'FAIL' || report.recommendation === '不通过') {
+    badge.className = 'px-5 py-2 rounded-full bg-error-container text-on-error-container text-xs font-bold uppercase tracking-wider';
+  } else {
+    badge.className = 'px-5 py-2 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-xs font-bold uppercase tracking-wider';
+  }
+
+  // Summary
+  document.getElementById('summaryText').textContent = report.summary || '暂无摘要';
+
+  // Dimension Cards
+  renderDimensionCards(report.dimension_scores || []);
+
+  // Radar Chart
+  renderRadarChart(report.dimension_scores || []);
+
+  // Issues
+  renderIssues(report.issues || []);
+}
+
+function renderDimensionCards(dimensions) {
+  const container = document.getElementById('dimensionCards');
+  container.innerHTML = '';
+
+  const iconMap = {
+    'completeness': 'inventory_2',
+    '完整性': 'inventory_2',
+    'feasibility': 'engineering',
+    '可行性': 'engineering',
+    'user_value': 'trending_up',
+    '用户价值': 'trending_up',
+    'risk': 'warning',
+    '风险': 'warning',
+    'architecture': 'scale',
+    '架构': 'scale',
+    'logic': 'visibility',
+    '逻辑': 'visibility',
+    'reasonableness': 'psychology',
+    '合理性': 'psychology',
+    'priority': 'priority_high',
+    '优先级': 'priority_high'
+  };
+
+  const descMap = {
+    'completeness': '覆盖了全量基础流程与状态定义',
+    '完整性': '覆盖了全量基础流程与状态定义',
+    'feasibility': '技术实现方案可行性评估',
+    '可行性': '技术实现方案可行性评估',
+    'user_value': '对用户实际需求的满足程度',
+    '用户价值': '对用户实际需求的满足程度',
+    'risk': '潜在风险与安全隐患评估',
+    '风险': '潜在风险与安全隐患评估',
+    'architecture': '系统架构设计合理性',
+    '架构': '系统架构设计合理性',
+    'logic': '业务逻辑严密性评估',
+    '逻辑': '业务逻辑严密性评估',
+    'reasonableness': '需求描述合理性评估',
+    '合理性': '需求描述合理性评估',
+    'priority': '优先级一致性评估',
+    '优先级': '优先级一致性评估'
+  };
+
+  dimensions.forEach(dim => {
+    const name = dim.dimension || 'Unknown';
+    const scoreVal = Math.round(dim.score || 0);
+    const icon = iconMap[name] || 'circle';
+    const desc = descMap[name] || dim.description || '';
+
+    const card = document.createElement('div');
+    card.className = 'bg-surface-container-low p-4 rounded-xl group hover:bg-surface-container-lowest transition-all';
+    card.innerHTML = `
+      <div class="flex justify-between items-start mb-4">
+        <div class="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center group-hover:scale-110 transition-transform">
+          <span class="material-symbols-outlined text-primary text-lg">${icon}</span>
+        </div>
+        <span class="text-xl font-satoshi font-bold text-primary">${scoreVal}</span>
+      </div>
+      <h4 class="text-xs font-bold text-primary uppercase tracking-widest mb-2">${name}</h4>
+      <p class="text-[11px] text-on-surface-variant leading-relaxed">${desc}</p>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function renderRadarChart(dimensions) {
+  const ctx = document.getElementById('radarChart').getContext('2d');
+
+  if (radarChart) {
+    radarChart.destroy();
+  }
+
+  const labels = dimensions.map(d => d.dimension);
+  const data = dimensions.map(d => d.score);
+
+  radarChart = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: '维度评分',
+        data: data,
+        backgroundColor: 'rgba(58, 46, 71, 0.1)',
+        borderColor: 'rgba(58, 46, 71, 0.8)',
+        borderWidth: 2,
+        pointBackgroundColor: 'rgba(58, 46, 71, 0.8)',
+        pointBorderColor: '#fff',
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: 'rgba(58, 46, 71, 0.8)',
+        fill: true,
+        tension: 0.1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        r: {
+          beginAtZero: true,
+          max: 10,
+          ticks: {
+            stepSize: 2,
+            font: { size: 10 },
+            color: '#7b757d'
+          },
+          pointLabels: {
+            font: { size: 11, weight: '500' },
+            color: '#3a2e47'
+          },
+          grid: {
+            color: 'rgba(0,0,0,0.05)'
+          }
+        }
+      },
+      plugins: {
+        legend: { display: false }
+      }
+    }
+  });
+}
+
+function renderIssues(issues) {
+  const container = document.getElementById('issuesList');
+  container.innerHTML = '';
+
+  // Count by severity
+  const counts = { HIGH: 0, MEDIUM: 0, LOW: 0 };
+  issues.forEach(issue => {
+    const sev = (issue.severity || 'LOW').toUpperCase();
+    if (counts[sev] !== undefined) counts[sev]++;
+  });
+
+  // Render count badges
+  const countsContainer = document.getElementById('issueCounts');
+  countsContainer.innerHTML = `
+    ${counts.HIGH > 0 ? `
+    <div class="flex items-center gap-3 bg-error-container/30 px-5 py-2.5 rounded-lg">
+      <span class="w-3 h-3 rounded-full bg-error animate-pulse"></span>
+      <span class="text-xs font-bold text-error uppercase tracking-widest">HIGH: ${counts.HIGH}</span>
+    </div>` : ''}
+    ${counts.MEDIUM > 0 ? `
+    <div class="flex items-center gap-3 bg-tertiary-fixed/30 px-5 py-2.5 rounded-lg">
+      <span class="w-3 h-3 rounded-full bg-tertiary"></span>
+      <span class="text-xs font-bold text-tertiary uppercase tracking-widest">MEDIUM: ${counts.MEDIUM}</span>
+    </div>` : ''}
+    ${counts.LOW > 0 ? `
+    <div class="flex items-center gap-3 bg-surface-container-high px-5 py-2.5 rounded-lg">
+      <span class="w-3 h-3 rounded-full bg-on-secondary-container"></span>
+      <span class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">LOW: ${counts.LOW}</span>
+    </div>` : ''}
+    ${issues.length === 0 ? '<span class="text-stone-500 text-sm">未发现任何问题</span>' : ''}
+  `;
+
+  // Render issue cards
+  if (issues.length === 0) {
+    container.innerHTML = '<p class="text-center text-stone-500 py-8">太棒了！未发现任何问题。</p>';
+    return;
+  }
+
+  const severityColors = {
+    HIGH: { border: 'border-l-error', badge: 'bg-error-container text-on-error-container', dot: 'bg-error' },
+    MEDIUM: { border: 'border-l-tertiary', badge: 'bg-tertiary-fixed/30 text-tertiary', dot: 'bg-tertiary' },
+    LOW: { border: 'border-l-secondary', badge: 'bg-surface-container text-on-surface-variant', dot: 'bg-secondary' }
+  };
+
+  issues.forEach((issue, idx) => {
+    const sev = (issue.severity || 'LOW').toUpperCase();
+    const colors = severityColors[sev] || severityColors.LOW;
+    const displayId = issue.display_id || issue.id || `Issue-${idx + 1}`;
+    const title = issue.title || '未命名问题';
+    const dimension = issue.dimension || '';
+    const description = issue.description || '';
+    const section = issue.source_section || '';
+
+    const card = document.createElement('div');
+    card.className = `bg-surface-container-lowest border-l-4 ${colors.border} p-8 rounded-xl editorial-shadow hover:translate-x-1 transition-transform cursor-pointer`;
+    card.onclick = () => selectIssue(issue);
+
+    card.innerHTML = `
+      <div class="flex justify-between items-start mb-4">
+        <div>
+          <div class="flex items-center gap-3 mb-2">
+            <span class="text-xs font-bold text-on-surface-variant uppercase tracking-widest opacity-60">${displayId}</span>
+            ${section ? `<span class="text-xs font-medium text-on-surface-variant opacity-60">• ${section}</span>` : ''}
+          </div>
+          <h3 class="text-lg font-satoshi font-semibold text-primary">${title}</h3>
+          ${dimension ? `<span class="text-xs text-stone-500 mt-1">维度: ${dimension}</span>` : ''}
+        </div>
+        <span class="px-4 py-1.5 rounded-full ${colors.badge} text-[10px] font-bold uppercase tracking-widest">${sev}</span>
+      </div>
+      <p class="text-[15px] text-on-surface-variant leading-relaxed">${description}</p>
+      ${issue.suggestion ? `<p class="text-[14px] text-primary mt-3"><strong>建议:</strong> ${issue.suggestion}</p>` : ''}
+    `;
+    container.appendChild(card);
+  });
+}
+
+// ========== Issue Selection ==========
+function selectIssue(issue) {
+  sessionStorage.setItem('selectedIssueId', issue.id || issue.display_id);
+  sessionStorage.setItem('selectedIssue', JSON.stringify(issue));
+  navigateToAssistant(event);
+}
+
+// ========== Event Listeners ==========
+function setupEventListeners() {
+  // Download PDF
+  document.getElementById('downloadBtn').addEventListener('click', async () => {
+    const sessionId = sessionStorage.getItem('lastSessionId');
+    if (!sessionId) return alert('无可用报告');
+    window.open(`${API_BASE}/review/export/pdf/${sessionId}`, '_blank');
+  });
+
+  // Export (share)
+  document.getElementById('exportBtn').addEventListener('click', async () => {
+    const sessionId = sessionStorage.getItem('lastSessionId');
+    if (!sessionId) return alert('无可用报告');
+    try {
+      const response = await fetch(`${API_BASE}/review/share?session_id=${sessionId}`, { method: 'POST' });
+      const data = await response.json();
+      const shareUrl = `${window.location.origin}${data.share_url}`;
+      await navigator.clipboard.writeText(shareUrl);
+      alert(`分享链接已复制到剪贴板:\n${shareUrl}`);
+    } catch (e) {
+      alert('生成分享链接失败');
+    }
+  });
+
+  // Rerun (redirect to workbench)
+  document.getElementById('rerunBtn').addEventListener('click', () => {
+    navigateToWorkbench(event);
+  });
+}
+
+// ========== Navigation ==========
+function navigateToWorkbench(e) {
+  if (e) e.preventDefault();
+  window.location.href = '/first page code_integrated.html';
+}
+
+function navigateToAssistant(e) {
+  if (e) e.preventDefault();
+  window.location.href = '/third page/third_page_integrated.html';
+}
+
+// ========== Utilities ==========
+function getQueryParam(name) {
+  const params = new URLSearchParams(window.location.search);
+  return params.get(name);
+}
+</script>
+</body></html>

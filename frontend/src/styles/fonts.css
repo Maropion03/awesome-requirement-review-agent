@@ -1,0 +1,71 @@
+/* Custom Fonts for PRD Review System */
+
+/* Satoshi Variable Font - for headings and display elements */
+@font-face {
+  font-family: 'Satoshi';
+  src: url('../assets/fonts/Satoshi-Variable.woff2') format('woff2'),
+       url('../assets/fonts/Satoshi-Variable.woff') format('woff');
+  font-weight: 300 900;
+  font-display: swap;
+  font-style: normal;
+}
+
+/* Fallback Satoshi-like font stack */
+.font-satoshi {
+  font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+/* Inter Font - for body text and UI elements */
+@font-face {
+  font-family: 'Inter';
+  src: url('../assets/fonts/Inter-Regular.woff2') format('woff2'),
+       url('../assets/fonts/Inter-Regular.woff') format('woff');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('../assets/fonts/Inter-Medium.woff2') format('woff2'),
+       url('../assets/fonts/Inter-Medium.woff') format('woff');
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('../assets/fonts/Inter-SemiBold.woff2') format('woff2'),
+       url('../assets/fonts/Inter-SemiBold.woff') format('woff');
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('../assets/fonts/Inter-Bold.woff2') format('woff2'),
+       url('../assets/fonts/Inter-Bold.woff') format('woff');
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* Fallback Inter-like font stack */
+.font-inter {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+/* Default font sizing based on design system */
+:root {
+  /* Typography scale */
+  --font-size-display-lg: 3.5rem;      /* 56px */
+  --font-size-headline-md: 1.75rem;    /* 28px */
+  --font-size-title-md: 1.125rem;      /* 18px */
+  --font-size-body-md: 0.875rem;       /* 14px */
+  --font-size-label-sm: 0.6875rem;     /* 11px */
+  
+  /* Letter spacing */
+  --letter-spacing-tight: -0.02em;
+  
+  /* Line heights */
+  --line-height-base: 1.5;
+  --line-height-tight: 1.25;
+}

@@ -1,0 +1,63 @@
+# 组件结构概述
+
+## 主要组件
+
+### App.vue
+- 应用根组件
+- 包含路由出口
+- 设置全局样式和主题
+
+### components/AssistantPanel.vue
+- 主界面面板组件
+- 包含配置面板和报告查看器
+- 聊天界面和问题详情展示
+
+### components/ConfigPanel.vue
+- 配置面板组件
+- 文件上传区域
+- 评审选项配置
+- 进度显示
+
+### components/ReportViewer.vue
+- 评审报告查看器
+- 展示综合评分和建议
+- 维度评分详情
+- 问题清单及状态管理
+- 证据链展示
+
+### components/ReviewProgress.vue
+- 评审进度组件
+- 显示各维度处理进度
+- 代理执行状态
+
+### components/UploadArea.vue
+- 文件上传区域组件
+- 拖拽上传功能
+- 文件类型验证
+- 上传状态反馈
+
+## 核心功能模块
+
+### lib/assistantPanel.js
+- 聊天面板逻辑处理
+- 消息处理和状态管理
+
+### lib/chatApi.js
+- 与后端API通信
+- 处理聊天消息
+- SSE事件处理
+
+### lib/exportSuggestions.js
+- 导出建议功能实现
+- 状态过滤和格式化
+
+### lib/issueState.js
+- Issue状态管理
+- 状态流转逻辑
+
+### lib/reportDimensions.js
+- 报告维度处理逻辑
+
+### lib/reviewApi.js
+- 评审API接口封装
+- 文件上传和评审启动

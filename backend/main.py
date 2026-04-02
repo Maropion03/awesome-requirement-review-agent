@@ -1,5 +1,6 @@
 import os
 from contextlib import asynccontextmanager
+from typing import Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,7 +10,26 @@ from api.routes import router as api_router
 
 load_dotenv()
 
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+DEFAULT_CORS_ORIGINS = {
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:5176",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5176",
+}
+
+
+def _parse_cors_origins(raw_value: Optional[str]) -> list[str]:
+    configured = []
+    if raw_value:
+        configured = [origin.strip() for origin in raw_value.split(",") if origin.strip()]
+
+    # Always keep local dev origins available so the frontend can talk to the API
+    # whether it runs on common local ports or the current Vite dev port.
+    return list(dict.fromkeys(configured + sorted(DEFAULT_CORS_ORIGINS)))
+
+
+CORS_ORIGINS = _parse_cors_origins(os.getenv("CORS_ORIGINS"))
 
 
 @asynccontextmanager
