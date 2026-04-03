@@ -39,7 +39,9 @@
 
 ### 在线访问
 
-项目已部署至 Railway，直接访问即可使用。
+👉 **[PRD 评审工作台](https://awesome-requirement-review-agent-production.up.railway.app/single-page-shell.html)**
+
+已部署至 Railway，无需配置，直接上传 PRD 文档即可开始评审。
 
 ### 本地运行
 
