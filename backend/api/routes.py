@@ -5,9 +5,13 @@ from pathlib import Path
 from typing import Optional
 
 import aiofiles
-from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Request, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 
 from api.schemas import (
     ChatRequest,
@@ -109,22 +113,24 @@ def attach_session_tracking(session_id: str, sse_service: SSEService) -> None:
 
 
 @router.post("/review/chat", response_model=ChatResponse)
-async def chat_review(request: ChatRequest):
+@limiter.limit("20/minute")
+async def chat_review(request: Request, body: ChatRequest):
     """Answer follow-up questions about the current review session."""
-    if request.session_id not in sessions:
+    if body.session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    session = sessions[request.session_id]
+    session = sessions[body.session_id]
     return ChatResponse(**build_chat_response(
         session=session,
-        message=request.message,
-        selected_issue_id=request.selected_issue_id,
-        context_mode=request.context_mode,
+        message=body.message,
+        selected_issue_id=body.selected_issue_id,
+        context_mode=body.context_mode,
     ))
 
 
 @router.post("/review/upload", response_model=UploadResponse)
-async def upload_prd(file: UploadFile = File(...)):
+@limiter.limit("10/minute")
+async def upload_prd(request: Request, file: UploadFile = File(...)):
     """Upload PRD document for review."""
     if file.size and file.size > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large (max 10MB)")
@@ -186,16 +192,17 @@ async def run_review(session_id: str, file_path: str, preset: str, sse_service: 
 
 
 @router.post("/review/start", response_model=StartReviewResponse)
-async def start_review(request: StartReviewRequest, background_tasks: BackgroundTasks):
+@limiter.limit("5/minute")
+async def start_review(request: Request, body: StartReviewRequest, background_tasks: BackgroundTasks):
     """Start PRD review process."""
-    session_id = request.session_id
+    session_id = body.session_id
 
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
 
     session = sessions[session_id]
     session["status"] = "started"
-    session["preset"] = request.preset.value
+    session["preset"] = body.preset.value
     session["current_dimension"] = None
     session["completed_dimensions"] = []
     session["progress"] = 0.0
@@ -208,7 +215,7 @@ async def start_review(request: StartReviewRequest, background_tasks: Background
         run_review,
         session_id,
         session["file_path"],
-        request.preset.value,
+        body.preset.value,
         session["sse_service"],
     )
 
