@@ -302,7 +302,7 @@
                 </div>
                 <div id="terminalLog" class="custom-scrollbar h-[320px] overflow-y-auto font-mono leading-6">
                   <div class="terminal-line text-emerald-300">[--:--:--] SYSTEM_BOOT: Static shell ready.</div>
-                  <div class="terminal-line text-sky-300">[--:--:--] API_BASE: http://127.0.0.1:8005/api</div>
+                  <div class="terminal-line text-sky-300">[--:--:--] API_BASE: /api</div>
                   <div class="terminal-line text-stone-400">[--:--:--] Waiting for document upload...</div>
                 </div>
                 <div class="mt-4 border-t border-white/10 pt-4">
@@ -517,7 +517,7 @@
   </div>
 
   <script>
-    const API_BASE = "http://127.0.0.1:8005/api";
+    const API_BASE = window.location.origin + "/api";
     const STORAGE_KEY = "prd-review-single-page-shell";
     const DIMENSION_FALLBACK_COUNT = 6;
 
@@ -1446,7 +1446,7 @@
           throw new Error(data.detail || "生成分享链接失败");
         }
 
-        const shareUrl = `http://127.0.0.1:8005/api/review/share/${data.share_token}`;
+        const shareUrl = `${window.location.origin}/api/review/share/${data.share_token}`;
         await navigator.clipboard.writeText(shareUrl);
         addLog(`SHARE: copied ${shareUrl}`, "success");
         alert(`分享链接已复制到剪贴板：\n${shareUrl}`);
