@@ -80,7 +80,11 @@ async def health_check():
 STATIC_DIR = Path("static")
 
 if STATIC_DIR.is_dir():
-    app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="static-assets")
+    # Mount known static subdirectories that Vite may produce
+    for subdir in ("assets",):
+        sub_path = STATIC_DIR / subdir
+        if sub_path.is_dir():
+            app.mount(f"/{subdir}", StaticFiles(directory=sub_path), name=f"static-{subdir}")
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
