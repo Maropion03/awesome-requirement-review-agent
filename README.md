@@ -1,4 +1,4 @@
-# PRD Review Workbench
+# Awesome Requirement Review Agent 
 
 An AI-powered PRD (Product Requirements Document) review system built on multi-agent collaboration. Upload a PRD, and AI agents automatically review it across 6 dimensions with real-time streaming progress and structured reports.
 
