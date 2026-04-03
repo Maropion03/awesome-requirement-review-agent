@@ -1,3 +1,100 @@
+# PRD Review Workbench
+
+An AI-powered PRD (Product Requirements Document) review system built on multi-agent collaboration. Upload a PRD, and AI agents automatically review it across 6 dimensions with real-time streaming progress and structured reports.
+
+**[English](#features) | [中文](#prd-评审工作台)**
+
+## Live Demo
+
+👉 **[Try it now](https://awesome-requirement-review-agent-production.up.railway.app/single-page-shell.html)** — No setup required, just upload your PRD.
+
+## Features
+
+- **6-Dimension Review** — Completeness, Reasonableness, User Value, Feasibility, Risk, Priority Consistency
+- **Multi-Agent Collaboration** — Dev / Design / Test agents review in parallel, coordinated by an Orchestrator
+- **3 Review Presets** — Standard / P0 Critical / Innovation, with auto-adjusted scoring weights
+- **Real-time Streaming** — SSE-based live progress updates as each dimension is reviewed
+- **AI Chat** — Post-review interactive Q&A to dive deeper into specific issues
+- **Report Export** — PDF and Markdown export
+- **Document Parsing** — Supports .docx and .md uploads
+- **Rate Limiting** — IP-based throttling via slowapi to prevent abuse
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│              Frontend (Single Page HTML)          │
+│              Tailwind CSS + Chart.js             │
+├─────────────────────────────────────────────────┤
+│              FastAPI Backend                      │
+│  ├── API Routes (upload/review/chat/export)      │
+│  ├── SSE Service (real-time streaming)           │
+│  ├── Review Service (review workflow)            │
+│  └── Chat Service (post-review Q&A)             │
+├─────────────────────────────────────────────────┤
+│              Multi-Agent Layer (CrewAI)           │
+│  ├── Orchestrator                                │
+│  ├── Dimension Reviewers × 6                     │
+│  └── Reporter                                    │
+├─────────────────────────────────────────────────┤
+│              MiniMax LLM API                     │
+└─────────────────────────────────────────────────┘
+```
+
+## Quick Start
+
+### Local Development
+
+```bash
+git clone git@github.com:Maropion03/awesome-requirement-review-agent.git
+cd awesome-requirement-review-agent/backend
+cp .env.example .env   # then fill in your MiniMax API credentials
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
+
+### Docker
+
+```bash
+docker build -t prd-reviewer .
+docker run -p 8000:8000 \
+  -e MINIMAX_API_KEY=your_key \
+  -e MINIMAX_API_BASE=https://api.minimax.chat/v1 \
+  -e MINIMAX_CHAT_MODEL=MiniMax-M2.7 \
+  prd-reviewer
+```
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | HTML + Tailwind CSS + Chart.js |
+| Backend | FastAPI + SSE (sse-starlette) |
+| AI Framework | CrewAI (Multi-Agent) |
+| LLM | MiniMax-M2.7 |
+| Doc Parsing | python-docx + Markdown |
+| Report Export | ReportLab (PDF) |
+| Rate Limiting | slowapi |
+| Deployment | Docker + Railway |
+
+## API
+
+| Method | Path | Description | Rate Limit |
+|--------|------|-------------|-----------|
+| POST | `/api/review/upload` | Upload PRD document | 10/min |
+| POST | `/api/review/start` | Start review | 5/min |
+| GET | `/api/review/stream/{session_id}` | SSE review progress | — |
+| GET | `/api/review/report/{session_id}` | Get review report | — |
+| POST | `/api/review/chat` | Post-review chat | 20/min |
+| GET | `/api/review/export/pdf/{session_id}` | Export PDF report | — |
+| GET | `/health` | Health check | — |
+
+## License
+
+MIT
+
+---
+
 # PRD 评审工作台
 
 基于多 Agent 协作的 PRD（产品需求文档）智能评审系统。上传 PRD 文档，AI 自动从 6 个维度进行专业评审，实时流式输出评审进度，生成结构化评审报告。
