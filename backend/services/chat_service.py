@@ -69,7 +69,7 @@ def _try_model_response(
         config = None
         if llm is None:
             config = resolve_minimax_config(
-                model=os.getenv("MINIMAX_CHAT_MODEL", "MiniMax-M2.7")
+                model=os.getenv("MINIMAX_CHAT_MODEL")
             )
             if not config.get("api_key"):
                 return None, "unavailable"

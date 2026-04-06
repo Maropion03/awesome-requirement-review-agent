@@ -14,7 +14,8 @@ from slowapi.errors import RateLimitExceeded
 
 from api.routes import router as api_router
 
-load_dotenv()
+BACKEND_ROOT = Path(__file__).resolve().parent
+load_dotenv(BACKEND_ROOT / ".env")
 
 DEFAULT_CORS_ORIGINS = {
     "http://localhost:3000",
@@ -77,7 +78,7 @@ async def health_check():
 
 
 # --- SPA static file serving ---
-STATIC_DIR = Path("static")
+STATIC_DIR = BACKEND_ROOT / "static"
 
 if STATIC_DIR.is_dir():
     # Mount known static subdirectories that Vite may produce

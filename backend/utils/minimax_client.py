@@ -5,6 +5,9 @@ from typing import Optional
 from dotenv import dotenv_values
 from langchain_openai import ChatOpenAI
 
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_ENV_FILE = BACKEND_ROOT / ".env"
+
 
 def resolve_minimax_config(
     model: Optional[str] = None,
@@ -17,12 +20,22 @@ def resolve_minimax_config(
 
     This allows local key changes to take effect without restarting the backend.
     """
-    env_path = env_file or Path(__file__).resolve().parents[1] / ".env"
+    env_path = env_file or DEFAULT_ENV_FILE
     file_values = dotenv_values(env_path) if env_path.exists() else {}
 
-    resolved_model = model or file_values.get("MINIMAX_CHAT_MODEL") or os.getenv("MINIMAX_CHAT_MODEL") or "MiniMax-M2.7"
-    resolved_api_key = api_key or file_values.get("MINIMAX_API_KEY") or os.getenv("MINIMAX_API_KEY")
-    resolved_api_base = api_base or file_values.get("MINIMAX_API_BASE") or os.getenv("MINIMAX_API_BASE", "https://api.minimax.chat/v1")
+    resolved_model = model if model is not None else (
+        file_values.get("MINIMAX_CHAT_MODEL")
+        or os.getenv("MINIMAX_CHAT_MODEL")
+        or "MiniMax-M2.7"
+    )
+    resolved_api_key = api_key if api_key is not None else (
+        file_values.get("MINIMAX_API_KEY")
+        or os.getenv("MINIMAX_API_KEY")
+    )
+    resolved_api_base = api_base if api_base is not None else (
+        file_values.get("MINIMAX_API_BASE")
+        or os.getenv("MINIMAX_API_BASE", "https://api.minimax.chat/v1")
+    )
 
     return {
         "model": resolved_model,
@@ -32,7 +45,7 @@ def resolve_minimax_config(
 
 
 def get_minimax_client(
-    model: str = "MiniMax-M2.7",
+    model: Optional[str] = None,
     api_key: Optional[str] = None,
     api_base: Optional[str] = None,
     streaming: bool = True,
