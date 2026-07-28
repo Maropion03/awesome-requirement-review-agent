@@ -1,7 +1,14 @@
 <template>
   <div class="app-shell">
-    <TopNavigation :current-project="currentProject" user-name="BYOK" user-initials="AI" />
-    <SideBar :active-page="currentRoute" @navigate="goToRoute" />
+    <SideBar
+      :active-page="currentRoute"
+      :run-status="runState.status"
+      :preset="apiConfig.preset"
+      :progress="runState.progress"
+      :provider-name="providerLabel"
+      @navigate="goToRoute"
+      @new-project="resetReviewRun"
+    />
 
     <WorkbenchPage
       v-if="currentRoute === HASH_ROUTES.workbench"
@@ -14,12 +21,15 @@
       :stream-text="streamText"
       :agent-stages="agentStages"
       :dimensions="dimensions"
+      :can-view-report="canViewReport"
+      :can-open-assistant="canOpenAssistant"
       @update:selected-file-name="selectedFileName = $event"
       @update:api-config="updateApiConfig"
       @file-selected="handleFileSelected"
       @clear-file="clearSelectedFile"
       @start-review="startReviewFlow"
       @reset-demo="resetReviewRun"
+      @navigate="goToRoute"
     />
 
     <ReportPage
@@ -33,10 +43,11 @@
       @export-suggestions="exportSuggestions"
       @open-assistant="goToRoute(HASH_ROUTES.assistant)"
       @rerun="goToRoute(HASH_ROUTES.workbench)"
+      @navigate="goToRoute"
     />
 
     <AssistantPage
-      v-else
+      v-else-if="currentRoute === HASH_ROUTES.assistant"
       :report="report"
       :can-chat="canOpenAssistant"
       :provider-label="providerLabel"
@@ -54,6 +65,18 @@
       @back-to-report="goToRoute(HASH_ROUTES.report)"
       @export-suggestions="exportSuggestions"
       @rerun="goToRoute(HASH_ROUTES.workbench)"
+      @navigate="goToRoute"
+    />
+
+    <SettingsPage
+      v-else
+      :api-config="apiConfig"
+      :providers="providers"
+      :can-view-report="canViewReport"
+      :can-open-assistant="canOpenAssistant"
+      @update:api-config="updateApiConfig"
+      @clear-api-config="clearStoredApiConfig"
+      @navigate="goToRoute"
     />
   </div>
 </template>
@@ -61,11 +84,12 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import TopNavigation from './components/layout/TopNavigation.vue'
 import SideBar from './components/layout/SideBar.vue'
 import WorkbenchPage from './components/pages/WorkbenchPage.vue'
 import ReportPage from './components/pages/ReportPage.vue'
 import AssistantPage from './components/pages/AssistantPage.vue'
+import SettingsPage from './components/pages/SettingsPage.vue'
+import { clearApiConfig, loadApiConfig, saveApiConfig } from './lib/apiConfigStorage.js'
 import { createAgentStages, applyDimensionEvent, applyStreamingMessage, completeReporterStage } from './lib/agentStages.js'
 import { buildAssistantSnapshot, createAssistantState, findIssueById, normalizeChatResponse } from './lib/assistantPanel.js'
 import { sendChatMessage } from './lib/chatApi.js'
@@ -93,12 +117,14 @@ function getWindowHash() {
 
 const currentRoute = ref(resolveHashRoute({ hash: getWindowHash(), fallback: HASH_ROUTES.workbench }))
 const providers = ref(PROVIDER_FALLBACKS)
-const apiConfig = ref({
+const defaultApiConfig = {
   provider: PROVIDER_FALLBACKS[0].id,
   apiKey: '',
   model: PROVIDER_FALLBACKS[0].default_model,
   preset: 'normal',
-})
+}
+const browserStorage = typeof window !== 'undefined' ? window.localStorage : null
+const apiConfig = ref(loadApiConfig({ storage: browserStorage, fallback: defaultApiConfig }))
 const selectedFile = ref(null)
 const selectedFileName = ref('')
 const uploadState = ref('idle')
@@ -125,11 +151,11 @@ const providerLabel = computed(() => {
   const provider = providers.value.find((item) => item.id === apiConfig.value.provider)
   return `${provider?.name || apiConfig.value.provider} · ${apiConfig.value.model}`
 })
-const currentProject = computed(() => selectedFileName.value || report.value.rawReport?.project_name || '未选择项目')
 const selectedIssueId = computed(() => getIssueIdentifier(selectedIssue.value) || '')
 const assistantSnapshot = computed(() => buildAssistantSnapshot({ report: report.value, runState: runState.value, selectedIssue: selectedIssue.value }))
 
 function normalizeAccessibleRoute(route) {
+  if (route === HASH_ROUTES.settings) return route
   if (route === HASH_ROUTES.assistant && !canOpenAssistant.value) return canViewReport.value ? HASH_ROUTES.report : HASH_ROUTES.workbench
   if (route === HASH_ROUTES.report && !canViewReport.value) return HASH_ROUTES.workbench
   return route
@@ -181,6 +207,11 @@ function resetReviewRun() {
 
 function updateApiConfig(next) {
   apiConfig.value = { ...apiConfig.value, ...next }
+}
+
+function clearStoredApiConfig() {
+  clearApiConfig({ storage: browserStorage })
+  apiConfig.value = { ...defaultApiConfig }
 }
 
 function appendStreamLine(line) {
@@ -374,6 +405,10 @@ watch(() => report.value.issues, (issues) => {
   if (selectedIssue.value) selectedIssue.value = findIssueById(report.value, selectedIssueId.value)
 }, { deep: true })
 
+watch(apiConfig, (next) => {
+  saveApiConfig(next, { storage: browserStorage })
+}, { deep: true })
+
 onMounted(async () => {
   if (typeof window !== 'undefined') {
     syncRouteFromHash()
@@ -394,5 +429,5 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.app-shell { min-height: 100vh; background: #fef8f1; }
+.app-shell { min-height: 100vh; }
 </style>

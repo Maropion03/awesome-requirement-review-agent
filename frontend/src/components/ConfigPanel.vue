@@ -1,9 +1,8 @@
 <template>
-  <section class="connection-panel" aria-labelledby="connection-title">
+  <section class="connection-panel surface-card" aria-labelledby="connection-title">
     <header class="panel-head">
-      <div class="step-mark">02</div>
       <div>
-        <p class="eyebrow">Bring your own key</p>
+        <p class="overline">Bring your own key</p>
         <h2 id="connection-title">连接你的模型</h2>
       </div>
       <span class="protocol-badge">{{ activeProvider.protocol === 'anthropic' ? 'Anthropic Messages' : 'OpenAI-compatible' }}</span>
@@ -64,12 +63,7 @@
 
       <div class="connection-test">
         <span class="test-status" :class="testState">{{ testMessage }}</span>
-        <button
-          type="button"
-          class="test-button"
-          :disabled="!canTest || testState === 'testing'"
-          @click="testConnection"
-        >
+        <button type="button" class="test-button" :disabled="!canTest || testState === 'testing'" @click="testConnection">
           {{ testState === 'testing' ? '验证中…' : '测试连接' }}
         </button>
       </div>
@@ -77,7 +71,7 @@
 
     <p class="trust-note">
       <span aria-hidden="true">↳</span>
-      Key 仅随本次请求发送到 Vercel 函数和所选模型服务，不写入 localStorage、数据库或日志。评审会把文档并行发送 6 次，请关注模型费用。
+      Key 会以明文写入当前浏览器的 localStorage，评审时经 Vercel 函数转发给所选模型。请勿在公共或共享设备上保存；评审会并行请求 6 个维度，请关注模型费用。
     </p>
   </section>
 </template>
@@ -87,14 +81,8 @@ import { computed, ref } from 'vue'
 import { PROVIDER_FALLBACKS, validateProvider } from '../lib/reviewApi.js'
 
 const props = defineProps({
-  modelValue: {
-    type: Object,
-    required: true,
-  },
-  providers: {
-    type: Array,
-    default: () => PROVIDER_FALLBACKS,
-  },
+  modelValue: { type: Object, required: true },
+  providers: { type: Array, default: () => PROVIDER_FALLBACKS },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -114,11 +102,7 @@ function updateField(field, value) {
 }
 
 function selectProvider(provider) {
-  emit('update:modelValue', {
-    ...props.modelValue,
-    provider: provider.id,
-    model: provider.default_model,
-  })
+  emit('update:modelValue', { ...props.modelValue, provider: provider.id, model: provider.default_model })
   testState.value = 'idle'
   testMessage.value = '供应商已切换，尚未验证'
 }
@@ -143,164 +127,32 @@ async function testConnection() {
 </script>
 
 <style scoped>
-.connection-panel {
-  border: 1px solid #1f1d19;
-  border-radius: 18px;
-  background: #fffdf8;
-  overflow: hidden;
-}
-
-.panel-head {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 18px 20px;
-  border-bottom: 1px solid #ded8cc;
-}
-
-.step-mark {
-  width: 42px;
-  height: 42px;
-  display: grid;
-  place-items: center;
-  background: #ff5a1f;
-  color: #fff;
-  border-radius: 50%;
-  font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-.eyebrow,
-h2 {
-  margin: 0;
-}
-
-.eyebrow {
-  color: #716b60;
-  text-transform: uppercase;
-  letter-spacing: .12em;
-  font-size: 10px;
-  font-weight: 700;
-}
-
-h2 {
-  font: 650 19px/1.2 'Avenir Next', 'PingFang SC', sans-serif;
-}
-
-.protocol-badge {
-  margin-left: auto;
-  border: 1px solid #1f1d19;
-  border-radius: 999px;
-  padding: 7px 10px;
-  font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-.provider-strip {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  border-bottom: 1px solid #ded8cc;
-}
-
-.provider-option {
-  min-width: 0;
-  border: 0;
-  border-right: 1px solid #ded8cc;
-  background: #f7f2e8;
-  padding: 13px 10px;
-  display: grid;
-  gap: 3px;
-  text-align: left;
-  cursor: pointer;
-  color: #211f1a;
-}
-
+.connection-panel { overflow: hidden; }
+.panel-head { padding: 24px 26px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--line); }
+h2 { margin: 7px 0 0; font-size: 24px; }
+.protocol-badge { padding: 8px 12px; border-radius: 999px; background: var(--soft); color: var(--primary); font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.provider-strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border-bottom: 1px solid var(--line); }
+.provider-option { min-width: 0; padding: 15px 12px; display: grid; gap: 4px; border: 0; border-right: 1px solid var(--line); background: var(--soft); color: var(--ink); text-align: left; cursor: pointer; }
 .provider-option:last-child { border-right: 0; }
 .provider-option:hover { background: #fff7e9; }
-.provider-option.active { background: #1f1d19; color: #fff; }
-.provider-option span { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.provider-option small { opacity: .62; font: 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
-
-.config-grid {
-  display: grid;
-  grid-template-columns: minmax(240px, 1.35fr) minmax(190px, .9fr) minmax(170px, .65fr) auto;
-  align-items: end;
-  gap: 14px;
-  padding: 20px;
-}
-
-.field {
-  min-width: 0;
-  display: grid;
-  gap: 7px;
-  color: #514b42;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.field input,
-.field select {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid #bcb4a7;
-  border-radius: 10px;
-  background: #fff;
-  color: #1f1d19;
-  padding: 11px 12px;
-  font: 13px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-.field input:focus,
-.field select:focus { border-color: #ff5a1f; outline: 3px solid rgba(255, 90, 31, .16); }
-
+.provider-option.active { background: var(--primary); color: #fff; }
+.provider-option span { overflow: hidden; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.provider-option small { opacity: .7; font-size: 10px; }
+.config-grid { padding: 24px 26px; display: grid; grid-template-columns: minmax(250px, 1.35fr) minmax(190px, .9fr) minmax(170px, .65fr) auto; align-items: end; gap: 16px; }
+.field { min-width: 0; display: grid; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.field input, .field select { width: 100%; box-sizing: border-box; min-height: 44px; padding: 0 13px; border: 1px solid var(--line); border-radius: 13px; background: #fff; color: var(--ink); font: 13px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.field input:focus, .field select:focus { border-color: var(--primary); outline: 3px solid rgb(239 108 0 / 14%); }
 .secret-input { display: flex; }
-.secret-input input { border-radius: 10px 0 0 10px; }
-.secret-input button {
-  border: 1px solid #bcb4a7;
-  border-left: 0;
-  border-radius: 0 10px 10px 0;
-  background: #f0ebe1;
-  padding: 0 12px;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.connection-test { display: grid; gap: 7px; justify-items: end; }
-.test-status { max-width: 190px; color: #716b60; font-size: 11px; text-align: right; line-height: 1.25; }
-.test-status.success { color: #137044; }
-.test-status.error { color: #b42318; }
-.test-button {
-  border: 1px solid #1f1d19;
-  border-radius: 10px;
-  background: #fff;
-  color: #1f1d19;
-  padding: 11px 15px;
-  font-weight: 750;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.test-button:disabled { opacity: .45; cursor: not-allowed; }
-
-.trust-note {
-  margin: 0;
-  padding: 12px 20px;
-  border-top: 1px solid #ded8cc;
-  background: #fff6d9;
-  color: #5e5132;
-  font-size: 12px;
-  line-height: 1.5;
-}
-.trust-note span { color: #ff5a1f; font-weight: 900; margin-right: 7px; }
-
-@media (max-width: 1050px) {
-  .provider-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .config-grid { grid-template-columns: 1fr 1fr; }
-  .connection-test { justify-items: start; }
-  .test-status { text-align: left; }
-}
-
-@media (max-width: 640px) {
-  .panel-head { align-items: flex-start; }
-  .protocol-badge { display: none; }
-  .provider-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .config-grid { grid-template-columns: 1fr; }
-}
+.secret-input input { border-radius: 13px 0 0 13px; }
+.secret-input button { padding: 0 14px; border: 1px solid var(--line); border-left: 0; border-radius: 0 13px 13px 0; background: var(--soft); color: var(--primary); cursor: pointer; font-weight: 700; }
+.connection-test { display: grid; gap: 8px; }
+.test-status { max-width: 160px; overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.test-status.success { color: var(--success); }
+.test-status.error { color: var(--danger); }
+.test-button { min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--primary); color: #fff; cursor: pointer; font-weight: 800; white-space: nowrap; }
+.test-button:disabled { cursor: not-allowed; opacity: .45; }
+.trust-note { margin: 0; padding: 16px 26px; display: flex; gap: 9px; border-top: 1px solid var(--line); background: #fff8ed; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.trust-note span { color: var(--primary); }
+@media (max-width: 1060px) { .provider-strip { grid-template-columns: repeat(3, 1fr); } .provider-option { border-bottom: 1px solid var(--line); } .config-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 650px) { .provider-strip, .config-grid { grid-template-columns: 1fr; } .provider-option { border-right: 0; } .panel-head { align-items: flex-start; flex-direction: column; } }
 </style>

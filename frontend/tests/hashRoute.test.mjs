@@ -14,6 +14,7 @@ test('parseHashRoute accepts known hash routes', () => {
   assert.equal(parseHashRoute('#/report'), HASH_ROUTES.report)
   assert.equal(parseHashRoute('#assistant'), HASH_ROUTES.assistant)
   assert.equal(parseHashRoute('   #/assistant  '), HASH_ROUTES.assistant)
+  assert.equal(parseHashRoute('#/settings'), HASH_ROUTES.settings)
 })
 
 test('resolveHashRoute prefers the current hash and falls back safely', () => {
@@ -44,6 +45,7 @@ test('resolveHashRoute prefers the current hash and falls back safely', () => {
 
 test('formatHashRoute normalizes unknown values back to report', () => {
   assert.equal(formatHashRoute(HASH_ROUTES.assistant), '#/assistant')
+  assert.equal(formatHashRoute(HASH_ROUTES.settings), '#/settings')
   assert.equal(formatHashRoute('anything-else'), '#/report')
   assert.equal(normalizeHashRoute('anything-else'), HASH_ROUTES.report)
 })

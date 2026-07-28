@@ -24,15 +24,15 @@ test('toggleDimensionExpansion keeps each dimension independent', () => {
   assert.equal(isDimensionExpanded(expanded, '需求完整性'), false)
 })
 
-test('ReportViewer preserves the formal report hierarchy', () => {
+test('ReportViewer preserves the original orange report hierarchy', () => {
   const source = readFileSync(resolve(process.cwd(), 'src/components/ReportViewer.vue'), 'utf8')
 
-  assert.match(source, /class="report-hero"/)
+  assert.match(source, /class="report-overview"/)
   assert.match(source, /class="score-ring"/)
-  assert.match(source, /结论摘要/)
-  assert.match(source, /class="dimension-strip"/)
-  assert.match(source, /class="dimension-detail"/)
-  assert.match(source, /class="issues-section"/)
-  assert.match(source, /class="evidence-quote"/)
-  assert.doesNotMatch(source, /class="summary-grid"/)
+  assert.match(source, /Recommendation/)
+  assert.match(source, /RadarChart/)
+  assert.match(source, /class="dimension-grid"/)
+  assert.match(source, /issues-section/)
+  assert.match(source, /原文依据/)
+  assert.doesNotMatch(source, /--report-primary: #3a2e47/)
 })

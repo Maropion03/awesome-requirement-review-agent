@@ -2,11 +2,13 @@ export const HASH_ROUTES = Object.freeze({
   workbench: 'workbench',
   report: 'report',
   assistant: 'assistant',
+  settings: 'settings',
 })
 
 export function normalizeHashRoute(route) {
   if (route === HASH_ROUTES.workbench) return HASH_ROUTES.workbench
   if (route === HASH_ROUTES.assistant) return HASH_ROUTES.assistant
+  if (route === HASH_ROUTES.settings) return HASH_ROUTES.settings
   return HASH_ROUTES.report
 }
 
@@ -20,7 +22,8 @@ export function parseHashRoute(hash) {
   if (
     normalized === HASH_ROUTES.workbench ||
     normalized === HASH_ROUTES.report ||
-    normalized === HASH_ROUTES.assistant
+    normalized === HASH_ROUTES.assistant ||
+    normalized === HASH_ROUTES.settings
   ) {
     return normalized
   }

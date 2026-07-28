@@ -1,59 +1,79 @@
 <template>
-  <main class="workbench-page">
-    <header class="page-header">
-      <div>
-        <p class="eyebrow">Open-source · BYOK · Stateless</p>
-        <h1>把 PRD 放上评审台</h1>
-        <p class="subtitle">六个维度并行审查，证据、评分和修改建议一次返回。</p>
-      </div>
-      <div class="header-meta">
-        <span>文件 / {{ selectedFileName || '未选择' }}</span>
-        <span>模型 / {{ providerName }} · {{ apiConfig.model }}</span>
-      </div>
-    </header>
+  <main class="page-shell workbench-page">
+    <PageHeader
+      title="新建 PRD 评审任务"
+      description="上传 PRD，选择评审模式，直接在当前工作台观察 Agent 链路、查看报告并继续追问。"
+      :can-view-report="canViewReport"
+      :can-open-assistant="canOpenAssistant"
+      @navigate="$emit('navigate', $event)"
+    />
 
-    <section class="workbench-flow">
-      <UploadArea
-        v-model="selectedFileNameModel"
-        :status="uploadState"
-        :error-message="uploadError"
-        :disabled="isRunning"
-        @file-selected="$emit('file-selected', $event)"
-        @clear-file="$emit('clear-file')"
-      />
+    <div class="workbench-grid">
+      <div class="left-column">
+        <section class="workbench-intro surface-card">
+          <div>
+            <p class="overline">Workbench</p>
+            <h1>上传文档并启动评审</h1>
+            <p>文档和用户 API Key 仅随本次无状态请求发送。报告与助手保留在当前页面会话内。</p>
+          </div>
+          <button class="api-state" type="button" @click="$emit('navigate', 'settings')">
+            <span>{{ apiConfig.apiKey ? 'API 已配置' : '配置 API' }}</span>
+            <small>{{ providerName }} · {{ apiConfig.model }}</small>
+          </button>
+        </section>
 
-      <ConfigPanel
-        :model-value="apiConfig"
-        :providers="providers"
-        @update:model-value="$emit('update:api-config', $event)"
-      />
+        <UploadArea
+          v-model="selectedFileNameModel"
+          :status="uploadState"
+          :error-message="uploadError"
+          :disabled="isRunning"
+          @file-selected="$emit('file-selected', $event)"
+          @clear-file="$emit('clear-file')"
+        />
 
-      <section class="launch-row">
-        <div class="step-mark">03</div>
-        <div class="launch-copy">
-          <strong>{{ isRunning ? '评审正在运行' : '启动评审' }}</strong>
-          <span>{{ launchHint }}</span>
+        <div class="configuration-grid">
+          <section class="surface-card mode-card">
+            <header><span aria-hidden="true">⌁</span><div><h2>评审预设</h2><p>选择后随评审请求发送。</p></div></header>
+            <div class="preset-list">
+              <button v-for="preset in presets" :key="preset.id" type="button" :class="{ active: apiConfig.preset === preset.id }" @click="selectPreset(preset.id)">
+                <strong>{{ preset.label }}</strong><small>{{ preset.description }}</small>
+              </button>
+            </div>
+          </section>
+
+          <section class="surface-card agent-card">
+            <header><span aria-hidden="true">✦</span><div><h2>协作 Agent</h2><p>六维流水线固定启用。</p></div></header>
+            <div class="agent-list">
+              <div v-for="agent in agents" :key="agent.name">
+                <span><strong>{{ agent.name }}</strong><small>{{ agent.description }}</small></span>
+                <i aria-label="已启用"><b></b></i>
+              </div>
+            </div>
+          </section>
         </div>
-        <button class="reset-button" type="button" :disabled="isRunning" @click="$emit('reset-demo')">重置结果</button>
-        <button class="launch-button" type="button" :disabled="!canStart" @click="$emit('start-review')">
-          {{ isRunning ? '正在分析…' : '开始六维评审 →' }}
-        </button>
-      </section>
+      </div>
 
       <ReviewProgress
         :agent-stages="agentStages"
         :dimensions="dimensions"
         :stream-text="streamText"
+        :is-running="isRunning"
+        :can-start="canStart"
+        :can-view-report="canViewReport"
+        :can-open-assistant="canOpenAssistant"
+        @start-review="$emit('start-review')"
+        @reset="$emit('reset-demo')"
+        @navigate="$emit('navigate', $event)"
       />
-    </section>
+    </div>
   </main>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import UploadArea from '../UploadArea.vue'
-import ConfigPanel from '../ConfigPanel.vue'
+import PageHeader from '../layout/PageHeader.vue'
 import ReviewProgress from '../ReviewProgress.vue'
+import UploadArea from '../UploadArea.vue'
 
 const props = defineProps({
   selectedFileName: { type: String, default: '' },
@@ -65,93 +85,50 @@ const props = defineProps({
   streamText: { type: String, default: '' },
   agentStages: { type: Array, default: () => [] },
   dimensions: { type: Array, default: () => [] },
+  canViewReport: Boolean,
+  canOpenAssistant: Boolean,
 })
 
-const emit = defineEmits([
-  'update:selected-file-name',
-  'update:api-config',
-  'file-selected',
-  'clear-file',
-  'start-review',
-  'reset-demo',
-])
+const emit = defineEmits(['update:selected-file-name', 'update:api-config', 'file-selected', 'clear-file', 'start-review', 'reset-demo', 'navigate'])
+const selectedFileNameModel = computed({ get: () => props.selectedFileName, set: (value) => emit('update:selected-file-name', value) })
+const providerName = computed(() => props.providers.find((item) => item.id === props.apiConfig.provider)?.name || props.apiConfig.provider || '未配置')
+const canStart = computed(() => Boolean(!props.isRunning && props.selectedFileName && props.apiConfig.apiKey?.trim() && props.apiConfig.model?.trim()))
 
-const selectedFileNameModel = computed({
-  get: () => props.selectedFileName,
-  set: (value) => emit('update:selected-file-name', value),
-})
+const presets = [
+  { id: 'normal', label: '标准模式', description: '覆盖完整业务逻辑与常规功能审查。' },
+  { id: 'p0_critical', label: 'P0 紧急模式', description: '突出稳定性、可用性与核心链路风险。' },
+  { id: 'innovation', label: '创新模式', description: '强调体验、差异化与用户价值评估。' },
+]
+const agents = [
+  { name: '研发 Agent', description: '关注技术可行性与实现风险' },
+  { name: '产品 Agent', description: '关注完整性、合理性和优先级' },
+  { name: '用户 Agent', description: '关注用户价值与体验表达' },
+]
 
-const providerName = computed(() => props.providers.find((item) => item.id === props.apiConfig.provider)?.name || props.apiConfig.provider)
-const canStart = computed(() => Boolean(
-  !props.isRunning &&
-  props.selectedFileName &&
-  props.apiConfig.apiKey?.trim() &&
-  props.apiConfig.model?.trim(),
-))
-const launchHint = computed(() => {
-  if (props.isRunning) return '请保持此页面打开；结果会按维度实时返回。'
-  if (!props.selectedFileName) return '先选择一份 .md 或 .docx 文档。'
-  if (!props.apiConfig.apiKey?.trim()) return '填写 API Key 后即可开始。'
-  return '本次运行不会创建服务器会话，也不会保存文档或 Key。'
-})
+function selectPreset(preset) { emit('update:api-config', { ...props.apiConfig, preset }) }
 </script>
 
 <style scoped>
-.workbench-page {
-  min-height: calc(100vh - 64px);
-  padding: 96px 28px 40px 300px;
-  background:
-    linear-gradient(rgba(32, 29, 23, .04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(32, 29, 23, .04) 1px, transparent 1px),
-    #f6f0e5;
-  background-size: 28px 28px;
-}
-
-.page-header {
-  max-width: 1180px;
-  margin: 0 auto 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 24px;
-}
-
-.eyebrow { margin: 0 0 6px; color: #ff5a1f; font: 800 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; text-transform: uppercase; }
-h1 { margin: 0; color: #1f1d19; font: 750 clamp(32px, 4vw, 54px)/1.02 'Avenir Next', 'PingFang SC', sans-serif; letter-spacing: -.045em; }
-.subtitle { margin: 10px 0 0; color: #6e675c; font-size: 14px; }
-.header-meta { display: grid; gap: 6px; color: #5f594f; font: 11px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; text-align: right; }
-
-.workbench-flow { max-width: 1180px; margin: 0 auto; display: grid; gap: 16px; }
-.launch-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px;
-  border: 1px solid #1f1d19;
-  border-radius: 18px;
-  background: #fffdf8;
-}
-.step-mark { width: 42px; height: 42px; flex: 0 0 42px; display: grid; place-items: center; border-radius: 50%; background: #ff5a1f; color: #fff; font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
-.launch-copy { display: grid; gap: 3px; min-width: 0; }
-.launch-copy strong { font-size: 15px; }
-.launch-copy span { color: #716b60; font-size: 12px; }
-.reset-button,
-.launch-button { border-radius: 11px; padding: 12px 16px; font-weight: 750; cursor: pointer; }
-.reset-button { margin-left: auto; border: 1px solid #bcb4a7; background: #fff; color: #39352e; }
-.launch-button { border: 1px solid #1f1d19; background: #1f1d19; color: #fff; min-width: 170px; }
-.launch-button:hover:not(:disabled) { background: #ff5a1f; border-color: #ff5a1f; }
-.reset-button:disabled,
-.launch-button:disabled { opacity: .42; cursor: not-allowed; }
-
-@media (max-width: 1180px) {
-  .workbench-page { padding-left: 24px; }
-}
-@media (max-width: 700px) {
-  .workbench-page { padding: 120px 14px 28px; }
-  .page-header { align-items: start; flex-direction: column; }
-  .header-meta { text-align: left; }
-  .launch-row { flex-wrap: wrap; }
-  .reset-button { margin-left: 0; }
-  .launch-button { width: 100%; }
-}
+.workbench-grid { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(340px,.85fr); gap: 24px; align-items: start; }
+.left-column { min-width: 0; display: grid; gap: 24px; }
+.workbench-intro { padding: 24px; display: flex; align-items: start; justify-content: space-between; gap: 20px; }
+h1 { margin: 8px 0 0; color: var(--ink); font-size: 24px; }
+.workbench-intro p:last-child { max-width: 650px; margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.8; }
+.api-state { min-width: 190px; padding: 12px 14px; display: grid; gap: 5px; border: 1px solid var(--line); border-radius: 16px; background: var(--soft); color: var(--primary); cursor: pointer; text-align: left; }
+.api-state span { font-weight: 800; } .api-state small { max-width: 210px; overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.configuration-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; }
+.mode-card, .agent-card { padding: 24px; }
+.mode-card header, .agent-card header { display: flex; align-items: center; gap: 12px; }
+.mode-card header > span, .agent-card header > span { color: var(--primary); font-size: 24px; }
+h2, header p { margin: 0; } h2 { font-size: 17px; } header p { margin-top: 4px; color: var(--muted); font-size: 12px; }
+.preset-list, .agent-list { margin-top: 22px; display: grid; gap: 12px; }
+.preset-list button, .agent-list > div { min-height: 68px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--soft); color: var(--ink); text-align: left; }
+.preset-list button { cursor: pointer; } .preset-list button.active { border-color: var(--primary); background: var(--panel); box-shadow: 0 10px 24px rgba(31,29,25,.08); }
+.preset-list strong, .preset-list small, .agent-list strong, .agent-list small { display: block; }
+.preset-list strong, .agent-list strong { font-size: 13px; } .preset-list small, .agent-list small { margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.agent-list > div { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.agent-list i { width: 48px; height: 28px; flex: 0 0 48px; padding: 4px 5px; display: flex; justify-content: flex-end; border-radius: 999px; background: var(--primary); }
+.agent-list b { width: 20px; height: 20px; border-radius: 50%; background: #fff; }
+@media (max-width: 1280px) { .workbench-grid { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .workbench-intro { flex-direction: column; } .api-state { width: 100%; } .configuration-grid { grid-template-columns: 1fr; } }
 </style>

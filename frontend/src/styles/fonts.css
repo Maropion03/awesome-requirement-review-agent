@@ -1,6 +1,5 @@
-/* System font stack: no missing local font assets and no third-party font request. */
 :root {
-  --font-display: 'Avenir Next', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
-  --font-body: 'Avenir Next', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  --font-display: 'Newsreader', 'Songti SC', Georgia, serif;
+  --font-body: 'Inter', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
   --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
 }

@@ -19,7 +19,7 @@ flowchart LR
 - The function parses Markdown/DOCX bytes in memory and creates no upload file.
 - Six dimension tasks run concurrently. Each model output is validated independently.
 - Report aggregation, weighting, issue IDs, and recommendation thresholds are deterministic Python logic.
-- The browser keeps the report, local issue status, chat history, and API Key in memory only.
+- The browser keeps the report, local issue status, and chat history in memory. Provider, model, preset, and API Key are persisted in plaintext `localStorage` by explicit product design.
 
 ## Trust boundaries
 
@@ -31,7 +31,7 @@ flowchart LR
 
 ## State and storage
 
-There is no database, server session, object storage, queue, report share, cookie, login, or analytics integration. Instance recycling therefore cannot lose server-owned user state because none exists. Refreshing the page intentionally clears the report and Key.
+There is no database, server session, object storage, queue, report share, cookie, login, or analytics integration. Instance recycling therefore cannot lose server-owned user state because none exists. Refreshing the page clears the report and chat, while the user's model configuration remains in browser `localStorage` until it is cleared from the API settings page or site data.
 
 The former share endpoint was removed: a seven-day link cannot be implemented honestly without durable storage. Users can export Markdown locally. A future share feature must add an explicit datastore, expiry enforcement, deletion policy, and access model.
 

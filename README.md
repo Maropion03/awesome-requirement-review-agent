@@ -11,6 +11,7 @@ An open-source PRD review workbench for product teams. Bring your own model API 
 - Migrated from the retired Railway deployment to Vercel.
 - Replaced the embedded/server-owned MiniMax setup with BYOK.
 - Supports MiniMax, OpenAI, Anthropic, DeepSeek, Gemini, and OpenRouter.
+- Adds a dedicated API settings page and persists provider, model, preset, and key in this browser.
 - Uses fixed official provider hosts; users can choose a model but cannot supply an arbitrary base URL.
 - Replaced process-local uploads, background jobs, sessions, SSE reconnects, and shares with one streaming request.
 - Runs all six reviewers concurrently and produces a deterministic aggregate report.
@@ -19,9 +20,9 @@ An open-source PRD review workbench for product teams. Bring your own model API 
 
 ## API key handling
 
-The key is held only in the browser's in-memory Vue state. Each validation, review, or chat request sends it through the Vercel Function to the selected provider. The app does not write keys to cookies, `localStorage`, a database, files, analytics, or logs. Closing or refreshing the page clears the key.
+The provider, model, preset, and key are stored as plaintext in this browser's `localStorage` so the configuration survives refreshes and browser restarts. Each validation, review, or chat request sends the key through the Vercel Function to the selected provider. The app does not write keys to cookies, a server-side database, files, analytics, or logs. Use **Clear local configuration** on shared devices or clear the site's browser data.
 
-This still requires trusting the Vercel deployment operator because the key transits the serverless function. Self-host if the PRD or key cannot pass through a third-party deployment.
+Browser storage is a convenience/security tradeoff: scripts running on this origin can read the stored key. The key also transits the serverless function, so the Vercel deployment operator must still be trusted. Self-host if the PRD or key cannot pass through a third-party deployment.
 
 ## Supported providers
 
