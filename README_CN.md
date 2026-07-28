@@ -1,183 +1,104 @@
-# PRD 评审工作台
+# Awesome Requirement Review Agent
 
-[English](README.md) | **中文**
+一个开源 PRD 评审工作台。用户自带模型 API Key，上传 Markdown 或 DOCX 文档后，系统从六个维度并行评审，输出证据、评分和可执行修改建议。
 
-基于多 Agent 协作的 PRD（产品需求文档）智能评审系统。上传 PRD 文档，AI 自动从 6 个维度进行专业评审，实时流式输出评审进度，生成结构化评审报告。
+> 当前版本无状态运行：不再内置 MiniMax Key，没有账号系统，也不在服务端保存文档、报告或对话。
 
-## 在线体验
+[English](./README.md)
 
-👉 **[PRD 评审工作台](https://awesome-requirement-review-agent-production.up.railway.app/single-page-shell.html)** — 无需配置，直接上传 PRD 文档即可开始评审。
+## v2 主要变化
 
-## 功能特性
+- 从已经失效的 Railway 部署迁移到 Vercel。
+- 删除服务端内置的 MiniMax 配置，改成用户自带 API Key。
+- 支持 MiniMax、OpenAI、Anthropic、DeepSeek、Gemini、OpenRouter。
+- 固定各供应商官方域名；用户可改模型名，不能输入任意 Base URL。
+- 用一次流式请求替代上传落盘、后台任务、内存 Session、SSE 重连和服务端分享。
+- 六个 Reviewer 真正并行；报告由本地确定性逻辑汇总。
+- 模型输出经过 Schema 校验，失败时自动修复一次；单维仍失败会明确降级，不再让页面一直等待。
+- 移除 CrewAI/LangChain 和重复的静态前端。
 
-- **6 维度智能评审** — 需求完整性、合理性、用户价值、技术可行性、实现风险、优先级一致性
-- **多 Agent 协作** — 研发 Agent、设计 Agent、测试 Agent 并行评审，Orchestrator 统一协调
-- **3 套评审预设** — 常规项目 / P0 紧急项目 / 创新探索项目，权重自动调整
-- **实时流式推送** — SSE 实时展示各维度评审进度与评分
-- **智能对话** — 评审完成后可针对具体问题与 AI 深入讨论
-- **报告导出** — 支持 PDF 和 Markdown 双格式导出
-- **文档解析** — 支持 .docx 和 .md 格式 PRD 上传
-- **IP 限流** — slowapi 保护 API 接口，防止滥用
+## API Key 如何处理
 
-## 技术架构
+Key 只保存在当前页面的 Vue 内存状态中。测试连接、评审、追问时，Key 会经过 Vercel Function 转发到所选模型服务。项目不会把 Key 写入 Cookie、`localStorage`、数据库、文件、分析工具或日志。刷新或关闭页面后，Key 自动丢失。
 
-```
-┌─────────────────────────────────────────────────┐
-│              Frontend (Single Page HTML)          │
-│              Tailwind CSS + Chart.js             │
-├─────────────────────────────────────────────────┤
-│              FastAPI Backend                      │
-│  ├── API Routes (上传/评审/对话/导出)             │
-│  ├── SSE Service (实时流式推送)                   │
-│  ├── Review Service (评审工作流)                  │
-│  └── Chat Service (智能对话)                      │
-├─────────────────────────────────────────────────┤
-│              Multi-Agent Layer (CrewAI)           │
-│  ├── Orchestrator (协调器)                       │
-│  ├── Dimension Reviewers × 6 (维度评审)          │
-│  └── Reporter (报告生成)                         │
-├─────────────────────────────────────────────────┤
-│              MiniMax LLM API                     │
-└─────────────────────────────────────────────────┘
-```
+客观说，这仍然要求用户信任 Vercel 部署者，因为 Key 会经过服务端函数。如果 PRD 或 Key 不允许经过第三方部署，应自行部署该仓库。
 
-## 快速开始
+## 支持的供应商
 
-### 本地运行
+| 供应商 | 接口形式 | 默认模型 |
+| --- | --- | --- |
+| MiniMax | OpenAI-compatible | `MiniMax-M2.7` |
+| OpenAI | Chat Completions | `gpt-5.2` |
+| Anthropic | Messages API | `claude-sonnet-5` |
+| DeepSeek | OpenAI-compatible | `deepseek-v4-flash` |
+| Google Gemini | OpenAI-compatible | `gemini-3.6-flash` |
+| OpenRouter | OpenAI-compatible | `~openai/gpt-latest` |
 
-**1. 克隆仓库**
+模型目录会变化，因此前端允许用户填写自己账号实际可用的模型名。
+
+## 本地运行
+
+需要 Python 3.12+、Node.js 22+，推荐安装 `uv`。
 
 ```bash
-git clone git@github.com:Maropion03/awesome-requirement-review-agent.git
-cd awesome-requirement-review-agent
+uv sync --dev
+uv run uvicorn backend.app:app --reload --port 8005
 ```
 
-**2. 配置环境变量**
-
-```bash
-cd backend
-cp .env.example .env
-```
-
-编辑 `.env` 文件，填入 MiniMax API 配置：
-
-```
-MINIMAX_API_KEY=your_api_key
-MINIMAX_API_BASE=https://api.minimax.chat/v1
-MINIMAX_CHAT_MODEL=MiniMax-M2.7
-```
-
-**3. 启动后端**
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-```
-
-**4. 启动前端（开发模式）**
+另开一个终端：
 
 ```bash
 cd frontend
-npm install
+npm ci --include=dev
 npm run dev
 ```
 
-访问 `http://localhost:5173` 即可使用。
+浏览器打开 `http://localhost:5173`。无需 `.env`，服务端也不需要配置模型 Key。
 
-### Docker 部署
-
-项目提供多阶段 Dockerfile，一键构建前后端合并镜像：
+## 测试与构建
 
 ```bash
-docker build -t prd-reviewer .
-docker run -p 8000:8000 \
-  -e MINIMAX_API_KEY=your_key \
-  -e MINIMAX_API_BASE=https://api.minimax.chat/v1 \
-  -e MINIMAX_CHAT_MODEL=MiniMax-M2.7 \
-  prd-reviewer
+uv sync --dev
+uv run pytest -q tests
+cd frontend && npm test && npm run build && npm audit
+uv run pytest -q skill-for-agent/tests --import-mode=importlib
+vercel build
 ```
 
-访问 `http://localhost:8000` 即可使用。
+## 部署到 Vercel
 
-## 项目结构
-
-```
-├── Dockerfile              # 多阶段构建（前端编译 + 后端运行）
-├── backend/
-│   ├── main.py             # FastAPI 应用入口 + SPA 静态文件服务
-│   ├── api/
-│   │   ├── routes.py       # API 路由（上传/评审/对话/分享）
-│   │   └── schemas.py      # Pydantic 数据模型
-│   ├── agents/
-│   │   ├── orchestrator.py # 评审协调器
-│   │   ├── reviewers.py    # 6 维度评审 Agent
-│   │   └── reporter.py     # 报告生成 Agent
-│   ├── services/
-│   │   ├── review_service.py  # 评审工作流
-│   │   ├── sse_service.py     # SSE 流式推送
-│   │   └── chat_service.py    # 智能对话
-│   ├── tools/
-│   │   ├── parser.py       # PRD 文档解析（.md / .docx）
-│   │   └── validator.py    # 输入校验
-│   ├── config/
-│   │   └── prompts.py      # Prompt 模板 + 预设权重配置
-│   └── utils/              # MiniMax 客户端 + 报告工具函数
-├── frontend/
-│   └── public/
-│       └── single-page-shell.html  # 单页前端（Tailwind + Chart.js）
-└── tests/                  # 单元测试
+```bash
+vercel
+vercel --prod
 ```
 
-## API 接口
+仓库已包含 [`vercel.json`](./vercel.json)。生产环境不需要配置任何模型密钥。Vercel 会把 Vue 构建到 `frontend/dist`，并把 `api/index.py` 部署为 FastAPI 函数。
 
-| 方法 | 路径 | 说明 | 限流 |
-|------|------|------|------|
-| POST | `/api/review/upload` | 上传 PRD 文档 | 10 次/分钟 |
-| POST | `/api/review/start` | 启动评审 | 5 次/分钟 |
-| GET | `/api/review/stream/{session_id}` | SSE 实时评审进度 | — |
-| GET | `/api/review/status/{session_id}` | 查询评审状态 | — |
-| GET | `/api/review/report/{session_id}` | 获取评审报告 | — |
-| POST | `/api/review/chat` | 评审后智能对话 | 20 次/分钟 |
-| GET | `/api/review/export/pdf/{session_id}` | 导出 PDF 报告 | — |
-| POST | `/api/review/config` | 配置评审 Agent | — |
-| GET | `/health` | 健康检查 | — |
+## 运行时 API
 
-## 评审维度与权重
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| GET | `/api/health` | 无状态运行健康检查 |
+| GET | `/api/providers` | 返回公开供应商/模型配置，不含 Key 和 Base URL |
+| POST | `/api/providers/validate` | 发起最小模型连接测试 |
+| POST | `/api/review/run` | 文档 + BYOK 配置，返回 NDJSON 进度和报告 |
+| POST | `/api/review/chat` | 携带报告上下文的无状态追问 |
 
-### 常规项目
+上传上限为 3.5MB，给 Vercel Function 的 4.5MB 请求体限制预留 Multipart 开销；解析后的正文上限为 8 万字符，避免超大上下文产生意外费用。一次完整评审会并行发起 6 次模型调用，连接测试、格式修复和追问还会额外消耗调用额度。
 
-| 维度 | 权重 | 评审重点 |
-|------|------|---------|
-| 需求完整性 | 20% | 功能描述、验收标准、边界条件 |
-| 需求合理性 | 20% | 逻辑自洽、场景覆盖 |
-| 用户价值 | 20% | 痛点解决、ROI |
-| 技术可行性 | 20% | 架构合理性、依赖可用性 |
-| 实现风险 | 10% | 技术风险、排期风险 |
-| 优先级一致性 | 10% | 优先级与资源匹配 |
+## 目录
 
-### P0 紧急项目
-
-完整性 35% + 可行性 35% + 风险 20% + 其他 10%
-
-### 创新探索项目
-
-用户价值 40% + 完整性 30% + 其他 30%
-
-## 技术栈
-
-| 层级 | 技术 |
-|------|------|
-| 前端 | HTML + Tailwind CSS + Chart.js |
-| 后端 | FastAPI + SSE (sse-starlette) |
-| AI 框架 | CrewAI (Multi-Agent) |
-| LLM | MiniMax-M2.7 |
-| 文档解析 | python-docx + Markdown |
-| 报告导出 | ReportLab (PDF) |
-| 限流 | slowapi |
-| 部署 | Docker + Railway |
+```text
+api/index.py                 Vercel Python 入口
+backend/app.py               FastAPI 路由
+backend/core/                供应商适配、解析、Schema、评审流水线
+frontend/src/                唯一维护的 Vue 前端
+tests/                       后端行为与安全测试
+frontend/tests/              前端契约测试
+skill-for-agent/             独立、确定性的本地评审 Skill
+documentation/               架构、流程、权限、变量与测试说明
+```
 
 ## License
 
-MIT
+[MIT](./LICENSE)

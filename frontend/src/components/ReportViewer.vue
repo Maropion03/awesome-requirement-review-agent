@@ -9,7 +9,7 @@
       <div class="summary-row">
         <div class="summary-item">
           <span class="label">综合评分</span>
-          <strong>{{ report.score }}/10</strong>
+          <strong>{{ report.score }}/100</strong>
         </div>
         <div class="summary-item">
           <span class="label">评审建议</span>

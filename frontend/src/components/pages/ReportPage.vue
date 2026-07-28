@@ -7,7 +7,7 @@
         <p class="subtitle">保留维度分析、问题证据和本地处理状态，方便快速进入对话闭环。</p>
       </div>
       <div class="header-meta">
-        <span class="meta-pill">评分：{{ report.score || '--' }}/10</span>
+        <span class="meta-pill">评分：{{ report.score || '--' }}/100</span>
         <span class="meta-pill">建议：{{ report.suggestion || '尚未生成' }}</span>
         <span class="meta-pill">问题数：{{ report.issues?.length || 0 }}</span>
       </div>

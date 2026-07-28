@@ -1,131 +1,306 @@
 <template>
-  <section class="card config-card">
-    <div class="section-head">
+  <section class="connection-panel" aria-labelledby="connection-title">
+    <header class="panel-head">
+      <div class="step-mark">02</div>
       <div>
-        <h2>评审配置</h2>
-        <p class="desc">选择本次评审的审查强度。不同预设会影响提示词权重和问题倾向。</p>
+        <p class="eyebrow">Bring your own key</p>
+        <h2 id="connection-title">连接你的模型</h2>
       </div>
-      <span class="mode-chip">{{ presetLabel }}</span>
+      <span class="protocol-badge">{{ activeProvider.protocol === 'anthropic' ? 'Anthropic Messages' : 'OpenAI-compatible' }}</span>
+    </header>
+
+    <div class="provider-strip" role="radiogroup" aria-label="API 供应商">
+      <button
+        v-for="provider in providers"
+        :key="provider.id"
+        type="button"
+        class="provider-option"
+        :class="{ active: modelValue.provider === provider.id }"
+        :aria-checked="modelValue.provider === provider.id"
+        role="radio"
+        @click="selectProvider(provider)"
+      >
+        <span>{{ provider.name }}</span>
+        <small>{{ provider.id === 'minimax' ? '原项目默认' : provider.protocol }}</small>
+      </button>
     </div>
 
-    <div class="row">
-      <label for="preset">预设模式</label>
-      <select id="preset" :value="modelValue" @change="emit('update:modelValue', $event.target.value)">
-        <option value="normal">标准评审</option>
-        <option value="p0_critical">高风险发布</option>
-        <option value="innovation">创新探索</option>
-      </select>
+    <div class="config-grid">
+      <label class="field key-field">
+        <span>API Key</span>
+        <div class="secret-input">
+          <input
+            :type="showKey ? 'text' : 'password'"
+            :value="modelValue.apiKey"
+            :placeholder="activeProvider.key_hint"
+            autocomplete="off"
+            spellcheck="false"
+            @input="updateField('apiKey', $event.target.value)"
+          />
+          <button type="button" @click="showKey = !showKey">{{ showKey ? '隐藏' : '显示' }}</button>
+        </div>
+      </label>
+
+      <label class="field">
+        <span>模型名</span>
+        <input
+          type="text"
+          :value="modelValue.model"
+          :placeholder="activeProvider.default_model"
+          autocomplete="off"
+          spellcheck="false"
+          @input="updateField('model', $event.target.value)"
+        />
+      </label>
+
+      <label class="field">
+        <span>评审预设</span>
+        <select :value="modelValue.preset" @change="updateField('preset', $event.target.value)">
+          <option value="normal">常规项目</option>
+          <option value="p0_critical">P0 紧急项目</option>
+          <option value="innovation">创新探索项目</option>
+        </select>
+      </label>
+
+      <div class="connection-test">
+        <span class="test-status" :class="testState">{{ testMessage }}</span>
+        <button
+          type="button"
+          class="test-button"
+          :disabled="!canTest || testState === 'testing'"
+          @click="testConnection"
+        >
+          {{ testState === 'testing' ? '验证中…' : '测试连接' }}
+        </button>
+      </div>
     </div>
+
+    <p class="trust-note">
+      <span aria-hidden="true">↳</span>
+      Key 仅随本次请求发送到 Vercel 函数和所选模型服务，不写入 localStorage、数据库或日志。评审会把文档并行发送 6 次，请关注模型费用。
+    </p>
   </section>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { PROVIDER_FALLBACKS, validateProvider } from '../lib/reviewApi.js'
 
 const props = defineProps({
   modelValue: {
-    type: String,
-    default: 'normal',
+    type: Object,
+    required: true,
+  },
+  providers: {
+    type: Array,
+    default: () => PROVIDER_FALLBACKS,
   },
 })
 
 const emit = defineEmits(['update:modelValue'])
+const showKey = ref(false)
+const testState = ref('idle')
+const testMessage = ref('尚未验证')
 
-const presetLabel = computed(() => {
-  const labels = {
-    normal: '标准评审',
-    p0_critical: '高风险发布',
-    innovation: '创新探索',
+const activeProvider = computed(() => (
+  props.providers.find((provider) => provider.id === props.modelValue.provider) || props.providers[0] || PROVIDER_FALLBACKS[0]
+))
+const canTest = computed(() => Boolean(props.modelValue.apiKey?.trim() && props.modelValue.model?.trim()))
+
+function updateField(field, value) {
+  testState.value = 'idle'
+  testMessage.value = '配置已修改，尚未验证'
+  emit('update:modelValue', { ...props.modelValue, [field]: value })
+}
+
+function selectProvider(provider) {
+  emit('update:modelValue', {
+    ...props.modelValue,
+    provider: provider.id,
+    model: provider.default_model,
+  })
+  testState.value = 'idle'
+  testMessage.value = '供应商已切换，尚未验证'
+}
+
+async function testConnection() {
+  if (!canTest.value) return
+  testState.value = 'testing'
+  testMessage.value = '正在发送最小验证请求'
+  try {
+    const result = await validateProvider({
+      provider: props.modelValue.provider,
+      apiKey: props.modelValue.apiKey,
+      model: props.modelValue.model,
+    })
+    testState.value = 'success'
+    testMessage.value = result.message || '连接成功'
+  } catch (error) {
+    testState.value = 'error'
+    testMessage.value = error instanceof Error ? error.message : '连接失败'
   }
-
-  return labels[props.modelValue] || '标准评审'
-})
+}
 </script>
 
 <style scoped>
-.card {
-  background: #ffffff;
-  border: 1px solid transparent;
-  border-radius: 1rem;
-  padding: 16px;
-  box-shadow: 0 4px 6px rgba(31, 24, 23, 0.06);
+.connection-panel {
+  border: 1px solid #1f1d19;
+  border-radius: 18px;
+  background: #fffdf8;
+  overflow: hidden;
 }
 
-.config-card {
-  display: grid;
-  gap: 14px;
-}
-
-.section-head {
+.panel-head {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: start;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #ded8cc;
 }
 
-h2,
-p {
+.step-mark {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  background: #ff5a1f;
+  color: #fff;
+  border-radius: 50%;
+  font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.eyebrow,
+h2 {
   margin: 0;
 }
 
+.eyebrow {
+  color: #716b60;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-size: 10px;
+  font-weight: 700;
+}
+
 h2 {
-  font-family: 'Satoshi', sans-serif;
-  font-size: 1.125rem;
-  color: #1d1b17;
+  font: 650 19px/1.2 'Avenir Next', 'PingFang SC', sans-serif;
 }
 
-.desc,
-.row,
-label,
-select,
-.mode-chip {
-  font-family: 'Inter', sans-serif;
-}
-
-.desc {
-  margin-top: 4px;
-  color: #64748b;
-  font-size: 0.875rem;
-  line-height: 1.5;
-}
-
-.row {
-  display: grid;
-  gap: 8px;
-}
-
-label {
-  color: #334155;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-select {
-  padding: 10px 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.9rem;
-  background: #ffffff;
-  color: #1f2937;
-  font-size: 0.9375rem;
-}
-
-.mode-chip {
+.protocol-badge {
+  margin-left: auto;
+  border: 1px solid #1f1d19;
   border-radius: 999px;
-  padding: 7px 12px;
-  background: #f3eef8;
-  color: #4b2f68;
-  font-size: 0.75rem;
-  font-weight: 600;
+  padding: 7px 10px;
+  font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.provider-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  border-bottom: 1px solid #ded8cc;
+}
+
+.provider-option {
+  min-width: 0;
+  border: 0;
+  border-right: 1px solid #ded8cc;
+  background: #f7f2e8;
+  padding: 13px 10px;
+  display: grid;
+  gap: 3px;
+  text-align: left;
+  cursor: pointer;
+  color: #211f1a;
+}
+
+.provider-option:last-child { border-right: 0; }
+.provider-option:hover { background: #fff7e9; }
+.provider-option.active { background: #1f1d19; color: #fff; }
+.provider-option span { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.provider-option small { opacity: .62; font: 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.config-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.35fr) minmax(190px, .9fr) minmax(170px, .65fr) auto;
+  align-items: end;
+  gap: 14px;
+  padding: 20px;
+}
+
+.field {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  color: #514b42;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #bcb4a7;
+  border-radius: 10px;
+  background: #fff;
+  color: #1f1d19;
+  padding: 11px 12px;
+  font: 13px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.field input:focus,
+.field select:focus { border-color: #ff5a1f; outline: 3px solid rgba(255, 90, 31, .16); }
+
+.secret-input { display: flex; }
+.secret-input input { border-radius: 10px 0 0 10px; }
+.secret-input button {
+  border: 1px solid #bcb4a7;
+  border-left: 0;
+  border-radius: 0 10px 10px 0;
+  background: #f0ebe1;
+  padding: 0 12px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.connection-test { display: grid; gap: 7px; justify-items: end; }
+.test-status { max-width: 190px; color: #716b60; font-size: 11px; text-align: right; line-height: 1.25; }
+.test-status.success { color: #137044; }
+.test-status.error { color: #b42318; }
+.test-button {
+  border: 1px solid #1f1d19;
+  border-radius: 10px;
+  background: #fff;
+  color: #1f1d19;
+  padding: 11px 15px;
+  font-weight: 750;
+  cursor: pointer;
   white-space: nowrap;
 }
+.test-button:disabled { opacity: .45; cursor: not-allowed; }
 
-@media (max-width: 720px) {
-  .section-head {
-    flex-direction: column;
-  }
+.trust-note {
+  margin: 0;
+  padding: 12px 20px;
+  border-top: 1px solid #ded8cc;
+  background: #fff6d9;
+  color: #5e5132;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.trust-note span { color: #ff5a1f; font-weight: 900; margin-right: 7px; }
 
-  .mode-chip {
-    width: fit-content;
-  }
+@media (max-width: 1050px) {
+  .provider-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .config-grid { grid-template-columns: 1fr 1fr; }
+  .connection-test { justify-items: start; }
+  .test-status { text-align: left; }
+}
+
+@media (max-width: 640px) {
+  .panel-head { align-items: flex-start; }
+  .protocol-badge { display: none; }
+  .provider-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .config-grid { grid-template-columns: 1fr; }
 }
 </style>

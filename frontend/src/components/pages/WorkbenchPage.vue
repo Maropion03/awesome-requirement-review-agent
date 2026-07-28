@@ -1,271 +1,157 @@
 <template>
-  <div class="workbench-page">
-    <div class="page-header">
+  <main class="workbench-page">
+    <header class="page-header">
       <div>
-        <p class="eyebrow">PRD Review Workbench</p>
-        <h1>PRD 评审工作台</h1>
-        <p class="subtitle">上传文档、配置评审并监控进度</p>
+        <p class="eyebrow">Open-source · BYOK · Stateless</p>
+        <h1>把 PRD 放上评审台</h1>
+        <p class="subtitle">六个维度并行审查，证据、评分和修改建议一次返回。</p>
       </div>
       <div class="header-meta">
-        <span class="meta-pill">当前文件：{{ selectedFileName || '未选择' }}</span>
-        <span class="meta-pill">preset：{{ preset }}</span>
+        <span>文件 / {{ selectedFileName || '未选择' }}</span>
+        <span>模型 / {{ providerName }} · {{ apiConfig.model }}</span>
       </div>
-    </div>
+    </header>
 
-    <div class="workbench-content">
-      <section class="workbench-section">
-        <UploadArea
-          v-model="selectedFileName"
-          :status="uploadState"
-          :error-message="uploadError"
-          :disabled="isRunning"
-          @file-selected="onFileSelected"
-          @clear-file="clearSelectedFile"
-        />
+    <section class="workbench-flow">
+      <UploadArea
+        v-model="selectedFileNameModel"
+        :status="uploadState"
+        :error-message="uploadError"
+        :disabled="isRunning"
+        @file-selected="$emit('file-selected', $event)"
+        @clear-file="$emit('clear-file')"
+      />
 
-        <ConfigPanel v-model="preset" />
+      <ConfigPanel
+        :model-value="apiConfig"
+        :providers="providers"
+        @update:model-value="$emit('update:api-config', $event)"
+      />
 
-        <section class="card action-row">
-          <button class="primary" :disabled="isRunning" @click="startReview">开始评审</button>
-          <button :disabled="isRunning" @click="resetDemo">重置</button>
-          <span class="tip">配置完成后，点击开始评审按钮启动多维度分析</span>
-        </section>
-
-        <ReviewProgress
-          :agent-stages="agentStages"
-          :dimensions="dimensions"
-          :stream-text="streamText"
-        />
+      <section class="launch-row">
+        <div class="step-mark">03</div>
+        <div class="launch-copy">
+          <strong>{{ isRunning ? '评审正在运行' : '启动评审' }}</strong>
+          <span>{{ launchHint }}</span>
+        </div>
+        <button class="reset-button" type="button" :disabled="isRunning" @click="$emit('reset-demo')">重置结果</button>
+        <button class="launch-button" type="button" :disabled="!canStart" @click="$emit('start-review')">
+          {{ isRunning ? '正在分析…' : '开始六维评审 →' }}
+        </button>
       </section>
-    </div>
-  </div>
+
+      <ReviewProgress
+        :agent-stages="agentStages"
+        :dimensions="dimensions"
+        :stream-text="streamText"
+      />
+    </section>
+  </main>
 </template>
 
 <script setup>
-import { computed, defineProps, defineEmits, ref, watch } from 'vue'
+import { computed } from 'vue'
 import UploadArea from '../UploadArea.vue'
 import ConfigPanel from '../ConfigPanel.vue'
 import ReviewProgress from '../ReviewProgress.vue'
-import {
-  createAgentStages,
-  applyDimensionEvent,
-  applyStreamingMessage,
-  completeReporterStage,
-} from '../../lib/agentStages.js'
-import { createBaseDimensions } from '../../lib/reviewApi.js'
 
-// Props and emits
 const props = defineProps({
-  selectedFileName: String,
-  uploadState: String,
-  uploadError: String,
+  selectedFileName: { type: String, default: '' },
+  uploadState: { type: String, default: 'idle' },
+  uploadError: { type: String, default: '' },
   isRunning: Boolean,
-  preset: String,
-  streamText: String,
-  agentStages: Array,
-  dimensions: Array,
+  apiConfig: { type: Object, required: true },
+  providers: { type: Array, default: () => [] },
+  streamText: { type: String, default: '' },
+  agentStages: { type: Array, default: () => [] },
+  dimensions: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits([
-  'update:selectedFileName',
-  'update:uploadState', 
-  'update:uploadError',
-  'update:isRunning',
-  'update:preset',
-  'update:streamText',
-  'update:agentStages',
-  'update:dimensions',
+  'update:selected-file-name',
+  'update:api-config',
   'file-selected',
   'clear-file',
   'start-review',
-  'reset-demo'
+  'reset-demo',
 ])
 
-// Local refs (these will mirror props for local manipulation)
-const selectedFileName = computed({
+const selectedFileNameModel = computed({
   get: () => props.selectedFileName,
-  set: (value) => emit('update:selectedFileName', value)
+  set: (value) => emit('update:selected-file-name', value),
 })
 
-const uploadState = computed({
-  get: () => props.uploadState,
-  set: (value) => emit('update:uploadState', value)
+const providerName = computed(() => props.providers.find((item) => item.id === props.apiConfig.provider)?.name || props.apiConfig.provider)
+const canStart = computed(() => Boolean(
+  !props.isRunning &&
+  props.selectedFileName &&
+  props.apiConfig.apiKey?.trim() &&
+  props.apiConfig.model?.trim(),
+))
+const launchHint = computed(() => {
+  if (props.isRunning) return '请保持此页面打开；结果会按维度实时返回。'
+  if (!props.selectedFileName) return '先选择一份 .md 或 .docx 文档。'
+  if (!props.apiConfig.apiKey?.trim()) return '填写 API Key 后即可开始。'
+  return '本次运行不会创建服务器会话，也不会保存文档或 Key。'
 })
-
-const uploadError = computed({
-  get: () => props.uploadError,
-  set: (value) => emit('update:uploadError', value)
-})
-
-const isRunning = computed({
-  get: () => props.isRunning,
-  set: (value) => emit('update:isRunning', value)
-})
-
-const preset = computed({
-  get: () => props.preset,
-  set: (value) => emit('update:preset', value)
-})
-
-const streamText = computed({
-  get: () => props.streamText,
-  set: (value) => emit('update:streamText', value)
-})
-
-const agentStages = computed({
-  get: () => props.agentStages,
-  set: (value) => emit('update:agentStages', value)
-})
-
-const dimensions = computed({
-  get: () => props.dimensions,
-  set: (value) => emit('update:dimensions', value)
-})
-
-// Methods
-const onFileSelected = (file) => {
-  emit('file-selected', file)
-}
-
-const clearSelectedFile = () => {
-  emit('clear-file')
-}
-
-const startReview = () => {
-  emit('start-review')
-}
-
-const resetDemo = () => {
-  emit('reset-demo')
-}
-
-// Initialize if needed
-if (!agentStages.value || agentStages.value.length === 0) {
-  emit('update:agentStages', createAgentStages())
-}
-
-if (!dimensions.value || dimensions.value.length === 0) {
-  emit('update:dimensions', createBaseDimensions())
-}
 </script>
 
 <style scoped>
 .workbench-page {
-  padding: 88px 20px 20px 300px; /* Account for fixed header (64px) and sidebar (280px) */
-  background: #fef8f1;
   min-height: calc(100vh - 64px);
-  display: grid;
-  gap: 18px;
+  padding: 96px 28px 40px 300px;
+  background:
+    linear-gradient(rgba(32, 29, 23, .04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(32, 29, 23, .04) 1px, transparent 1px),
+    #f6f0e5;
+  background-size: 28px 28px;
 }
 
 .page-header {
+  max-width: 1180px;
+  margin: 0 auto 24px;
   display: flex;
   justify-content: space-between;
-  gap: 16px;
   align-items: end;
-  flex-wrap: wrap;
+  gap: 24px;
 }
 
-.eyebrow {
-  margin: 0 0 4px;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #64748b;
-}
+.eyebrow { margin: 0 0 6px; color: #ff5a1f; font: 800 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; text-transform: uppercase; }
+h1 { margin: 0; color: #1f1d19; font: 750 clamp(32px, 4vw, 54px)/1.02 'Avenir Next', 'PingFang SC', sans-serif; letter-spacing: -.045em; }
+.subtitle { margin: 10px 0 0; color: #6e675c; font-size: 14px; }
+.header-meta { display: grid; gap: 6px; color: #5f594f; font: 11px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; text-align: right; }
 
-h1 {
-  margin: 0;
-  font-family: 'Satoshi', sans-serif;
-  font-weight: 600;
-  font-size: 1.75rem;
-  color: #1d1b17;
-  letter-spacing: -0.02em;
-}
-
-.subtitle,
-.tip,
-.meta-pill {
-  font-family: 'Inter', sans-serif;
-  color: #64748b;
-  font-size: 0.875rem;
-}
-
-.header-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.meta-pill {
-  border: 1px solid #d8e1ef;
-  background: #ffffff;
-  border-radius: 999px;
-  padding: 8px 12px;
-  font-size: 0.6875rem;
-  font-weight: 500;
-}
-
-.workbench-content {
-  display: grid;
-  gap: 18px;
-}
-
-.workbench-section {
-  display: grid;
-  gap: 12px;
-}
-
-.card {
-  background: #ffffff;
-  border: 1px solid transparent;
-  border-radius: 1rem;
-  padding: 16px;
-  box-shadow: 0 4px 6px rgba(31, 24, 23, 0.06);
-}
-
-.action-row {
+.workbench-flow { max-width: 1180px; margin: 0 auto; display: grid; gap: 16px; }
+.launch-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #1f1d19;
+  border-radius: 18px;
+  background: #fffdf8;
 }
-
-button {
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  border-radius: 1rem;
-  padding: 8px 14px;
-  cursor: pointer;
-  font-family: 'Inter', sans-serif;
-  font-weight: 500;
-  font-size: 0.875rem;
-}
-
-button.primary {
-  background: linear-gradient(to right, #3a2e47, #51445f);
-  color: #ffffff;
-  border-color: #3a2e47;
-}
-
-button:hover:enabled {
-  filter: brightness(0.98);
-}
-
-button:active:enabled {
-  transform: translateY(1px);
-}
-
-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
+.step-mark { width: 42px; height: 42px; flex: 0 0 42px; display: grid; place-items: center; border-radius: 50%; background: #ff5a1f; color: #fff; font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.launch-copy { display: grid; gap: 3px; min-width: 0; }
+.launch-copy strong { font-size: 15px; }
+.launch-copy span { color: #716b60; font-size: 12px; }
+.reset-button,
+.launch-button { border-radius: 11px; padding: 12px 16px; font-weight: 750; cursor: pointer; }
+.reset-button { margin-left: auto; border: 1px solid #bcb4a7; background: #fff; color: #39352e; }
+.launch-button { border: 1px solid #1f1d19; background: #1f1d19; color: #fff; min-width: 170px; }
+.launch-button:hover:not(:disabled) { background: #ff5a1f; border-color: #ff5a1f; }
+.reset-button:disabled,
+.launch-button:disabled { opacity: .42; cursor: not-allowed; }
 
 @media (max-width: 1180px) {
-  .workbench-page {
-    padding-left: 20px;
-    padding-top: 88px;
-  }
+  .workbench-page { padding-left: 24px; }
+}
+@media (max-width: 700px) {
+  .workbench-page { padding: 120px 14px 28px; }
+  .page-header { align-items: start; flex-direction: column; }
+  .header-meta { text-align: left; }
+  .launch-row { flex-wrap: wrap; }
+  .reset-button { margin-left: 0; }
+  .launch-button { width: 100%; }
 }
 </style>

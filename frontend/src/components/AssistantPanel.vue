@@ -15,7 +15,7 @@
     <section class="snapshot-grid compact">
       <div class="snapshot-card primary">
         <span class="label">综合评分</span>
-        <strong>{{ snapshot.score }}/10</strong>
+        <strong>{{ snapshot.score }}/100</strong>
         <p>{{ snapshot.suggestion }}</p>
       </div>
       <div class="snapshot-card">

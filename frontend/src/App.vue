@@ -1,23 +1,16 @@
 <template>
   <div class="app-shell">
-    <TopNavigation :current-project="currentProject" user-name="Ann" user-initials="AN" />
+    <TopNavigation :current-project="currentProject" user-name="BYOK" user-initials="AI" />
     <SideBar :active-page="currentRoute" @navigate="goToRoute" />
 
     <div v-if="currentRoute === HASH_ROUTES.report" class="route-actions">
-      <button
-        class="route-button primary"
-        type="button"
-        :disabled="!canOpenAssistant"
-        @click="goToRoute(HASH_ROUTES.assistant)"
-      >
+      <button class="route-button primary" type="button" :disabled="!canOpenAssistant" @click="goToRoute(HASH_ROUTES.assistant)">
         进入对话
       </button>
     </div>
 
     <div v-if="currentRoute === HASH_ROUTES.assistant" class="route-actions">
-      <button class="route-button" type="button" @click="goToRoute(HASH_ROUTES.report)">
-        返回报告
-      </button>
+      <button class="route-button" type="button" @click="goToRoute(HASH_ROUTES.report)">返回报告</button>
     </div>
 
     <WorkbenchPage
@@ -26,22 +19,17 @@
       :upload-state="uploadState"
       :upload-error="uploadError"
       :is-running="isRunning"
-      :preset="preset"
+      :api-config="apiConfig"
+      :providers="providers"
       :stream-text="streamText"
       :agent-stages="agentStages"
       :dimensions="dimensions"
       @update:selected-file-name="selectedFileName = $event"
-      @update:upload-state="uploadState = $event"
-      @update:upload-error="uploadError = $event"
-      @update:is-running="isRunning = $event"
-      @update:preset="preset = $event"
-      @update:stream-text="streamText = $event"
-      @update:agent-stages="agentStages = $event"
-      @update:dimensions="dimensions = $event"
+      @update:api-config="updateApiConfig"
       @file-selected="handleFileSelected"
       @clear-file="clearSelectedFile"
       @start-review="startReviewFlow"
-      @reset-demo="resetDemo"
+      @reset-demo="resetReviewRun"
     />
 
     <ReportPage
@@ -57,7 +45,8 @@
     <AssistantPage
       v-else
       :report="report"
-      :session-id="sessionId"
+      :can-chat="canOpenAssistant"
+      :provider-label="providerLabel"
       :chat-messages="chatMessages"
       :selected-issue="selectedIssue"
       :assistant-suggested-actions="assistantSuggestedActions"
@@ -88,34 +77,36 @@ import { buildExportPayload } from './lib/exportSuggestions.js'
 import { HASH_ROUTES, formatHashRoute, resolveHashRoute } from './lib/hashRoute.js'
 import { buildIssueExportItems, getIssueIdentifier, mergeIssueStatuses, updateIssueStatus } from './lib/issueState.js'
 import {
+  PROVIDER_FALLBACKS,
   createBaseDimensions,
   createEmptyReportViewModel,
-  createReviewStream,
+  loadProviderCatalog,
   mapReportToViewModel,
-  startReview,
-  uploadPrd,
+  startReviewStream,
 } from './lib/reviewApi.js'
+
+const MAX_FILE_BYTES = 3_500_000
+
+function createRunState() {
+  return { status: 'idle', progress: 0, current_dimension: null, completed_dimensions: [] }
+}
 
 function getWindowHash() {
   return typeof window === 'undefined' ? '' : window.location.hash
 }
 
-function createRunState() {
-  return {
-    status: 'idle',
-    progress: 0,
-    current_dimension: null,
-    completed_dimensions: [],
-  }
-}
-
 const currentRoute = ref(resolveHashRoute({ hash: getWindowHash(), fallback: HASH_ROUTES.workbench }))
+const providers = ref(PROVIDER_FALLBACKS)
+const apiConfig = ref({
+  provider: PROVIDER_FALLBACKS[0].id,
+  apiKey: '',
+  model: PROVIDER_FALLBACKS[0].default_model,
+  preset: 'normal',
+})
 const selectedFile = ref(null)
 const selectedFileName = ref('')
 const uploadState = ref('idle')
 const uploadError = ref('')
-const preset = ref('normal')
-const sessionId = ref('')
 const isRunning = ref(false)
 const streamText = ref('')
 const agentStages = ref(createAgentStages())
@@ -130,74 +121,35 @@ const assistantSourceRefs = ref([])
 const assistantStatus = ref('unavailable')
 const assistantResponseMode = ref('report_level')
 const isChatLoading = ref(false)
+let reviewController = null
 
-let reviewStream = null
-
-const canViewReport = computed(() => {
-  return (
-    isRunning.value ||
-    runState.value.status === 'completed' ||
-    report.value.issues.length > 0 ||
-    streamText.value.trim().length > 0
-  )
+const canViewReport = computed(() => Boolean(report.value.rawReport))
+const canOpenAssistant = computed(() => Boolean(report.value.rawReport && apiConfig.value.apiKey.trim()))
+const providerLabel = computed(() => {
+  const provider = providers.value.find((item) => item.id === apiConfig.value.provider)
+  return `${provider?.name || apiConfig.value.provider} · ${apiConfig.value.model}`
 })
-
-const canOpenAssistant = computed(() => {
-  return Boolean(
-    sessionId.value && (runState.value.status === 'completed' || report.value.rawReport),
-  )
-})
-
-const currentProject = computed(() => {
-  return selectedFileName.value || report.value.rawReport?.project_name || '未选择项目'
-})
-
+const currentProject = computed(() => selectedFileName.value || report.value.rawReport?.project_name || '未选择项目')
 const selectedIssueId = computed(() => getIssueIdentifier(selectedIssue.value) || '')
-const assistantSnapshot = computed(() => {
-  return buildAssistantSnapshot({
-    report: report.value,
-    runState: runState.value,
-    selectedIssue: selectedIssue.value,
-  })
-})
+const assistantSnapshot = computed(() => buildAssistantSnapshot({ report: report.value, runState: runState.value, selectedIssue: selectedIssue.value }))
 
 function normalizeAccessibleRoute(route) {
-  if (route === HASH_ROUTES.assistant && !canOpenAssistant.value) {
-    return canViewReport.value ? HASH_ROUTES.report : HASH_ROUTES.workbench
-  }
-
-  if (route === HASH_ROUTES.report && !canViewReport.value) {
-    return HASH_ROUTES.workbench
-  }
-
+  if (route === HASH_ROUTES.assistant && !canOpenAssistant.value) return canViewReport.value ? HASH_ROUTES.report : HASH_ROUTES.workbench
+  if (route === HASH_ROUTES.report && !canViewReport.value) return HASH_ROUTES.workbench
   return route
 }
 
 function syncRouteFromHash() {
-  const requestedRoute = resolveHashRoute({
-    hash: getWindowHash(),
-    fallback: HASH_ROUTES.workbench,
-  })
-  const nextRoute = normalizeAccessibleRoute(
-    requestedRoute,
-  )
-  currentRoute.value = nextRoute
-
-  if (typeof window !== 'undefined' && requestedRoute !== nextRoute) {
-    window.location.hash = formatHashRoute(nextRoute)
-  }
+  const requested = resolveHashRoute({ hash: getWindowHash(), fallback: HASH_ROUTES.workbench })
+  const next = normalizeAccessibleRoute(requested)
+  currentRoute.value = next
+  if (typeof window !== 'undefined' && requested !== next) window.location.hash = formatHashRoute(next)
 }
 
 function goToRoute(route) {
-  const nextRoute = normalizeAccessibleRoute(route)
-  currentRoute.value = nextRoute
-
-  if (typeof window === 'undefined') return
-
-  const nextHash = formatHashRoute(nextRoute)
-  if (window.location.hash !== nextHash) {
-    window.location.hash = nextHash
-  }
+  const next = normalizeAccessibleRoute(route)
+  currentRoute.value = next
+  if (typeof window !== 'undefined' && window.location.hash !== formatHashRoute(next)) window.location.hash = formatHashRoute(next)
 }
 
 function resetAssistantState() {
@@ -210,15 +162,13 @@ function resetAssistantState() {
   isChatLoading.value = false
 }
 
-function closeReviewStream() {
-  if (reviewStream) {
-    reviewStream.close()
-    reviewStream = null
-  }
+function cancelReview() {
+  reviewController?.abort()
+  reviewController = null
 }
 
 function resetReviewRun() {
-  closeReviewStream()
+  cancelReview()
   isRunning.value = false
   streamText.value = ''
   agentStages.value = createAgentStages()
@@ -227,209 +177,148 @@ function resetReviewRun() {
   issueState.value = {}
   selectedIssue.value = null
   runState.value = createRunState()
+  uploadState.value = selectedFile.value ? 'ready' : 'idle'
+  uploadError.value = ''
   resetAssistantState()
+  goToRoute(HASH_ROUTES.workbench)
+}
+
+function updateApiConfig(next) {
+  apiConfig.value = { ...apiConfig.value, ...next }
 }
 
 function appendStreamLine(line) {
-  if (!line) return
-  streamText.value = streamText.value ? `${streamText.value}\n${line}` : line
+  if (line) streamText.value = streamText.value ? `${streamText.value}\n${line}` : line
 }
 
 function markDimensionStatus(dimensionName, status) {
-  dimensions.value = dimensions.value.map((item) => {
-    if (item.name === dimensionName) {
-      return { ...item, status }
-    }
-    return item
-  })
+  dimensions.value = dimensions.value.map((item) => item.name === dimensionName ? { ...item, status } : item)
 }
 
-async function ensureUploadedSession() {
-  if (sessionId.value) return sessionId.value
-
-  if (!selectedFile.value) {
-    throw new Error('请先选择一个 PRD 文档')
-  }
-
-  uploadState.value = 'uploading'
-  uploadError.value = ''
-
-  const result = await uploadPrd({ file: selectedFile.value })
-  sessionId.value = result.session_id
-  uploadState.value = 'uploaded'
-  return sessionId.value
+function validateFile(file) {
+  if (!file) return '请选择一份 PRD 文档'
+  if (!/\.(md|docx)$/i.test(file.name)) return '仅支持 .md 和 .docx 文档'
+  if (file.size > MAX_FILE_BYTES) return '文档不能超过 3.5MB'
+  return ''
 }
 
 function handleFileSelected(file) {
-  selectedFile.value = file || null
-  selectedFileName.value = file?.name || ''
-  sessionId.value = ''
-  uploadError.value = ''
-  uploadState.value = file ? 'ready' : 'idle'
+  const error = validateFile(file)
+  if (error) {
+    selectedFile.value = null
+    selectedFileName.value = ''
+    uploadState.value = 'error'
+    uploadError.value = error
+    return
+  }
   resetReviewRun()
-  goToRoute(HASH_ROUTES.workbench)
+  selectedFile.value = file
+  selectedFileName.value = file.name
+  uploadState.value = 'ready'
+  uploadError.value = ''
 }
 
 function clearSelectedFile() {
+  resetReviewRun()
   selectedFile.value = null
   selectedFileName.value = ''
-  sessionId.value = ''
-  uploadError.value = ''
   uploadState.value = 'idle'
-  resetReviewRun()
-  goToRoute(HASH_ROUTES.workbench)
-}
-
-function resetDemo() {
-  sessionId.value = ''
-  uploadError.value = ''
-  uploadState.value = selectedFile.value ? 'ready' : 'idle'
-  resetReviewRun()
-  goToRoute(HASH_ROUTES.workbench)
-}
-
-function openReviewStream(activeSessionId) {
-  closeReviewStream()
-
-  reviewStream = createReviewStream({
-    sessionId: activeSessionId,
-    onConnected() {
-      runState.value = {
-        ...runState.value,
-        status: 'reviewing',
-      }
-    },
-    onDimensionStart(payload) {
-      markDimensionStatus(payload.dimension, 'active')
-      agentStages.value = applyDimensionEvent(agentStages.value, 'start', payload.dimension)
-      runState.value = {
-        ...runState.value,
-        status: 'reviewing',
-        current_dimension: payload.dimension,
-      }
-    },
-    onDimensionComplete(payload) {
-      markDimensionStatus(payload.dimension, 'complete')
-      agentStages.value = applyDimensionEvent(agentStages.value, 'complete', payload.dimension)
-
-      const completedDimensions = Array.from(
-        new Set([...runState.value.completed_dimensions, payload.dimension]),
-      )
-
-      runState.value = {
-        ...runState.value,
-        status: 'reviewing',
-        current_dimension: payload.dimension,
-        completed_dimensions: completedDimensions,
-        progress: Math.round((completedDimensions.length / dimensions.value.length) * 100),
-      }
-    },
-    onStreaming(payload) {
-      const content = payload?.content || ''
-      appendStreamLine(content)
-      agentStages.value = applyStreamingMessage(agentStages.value, content)
-    },
-    onComplete(payload) {
-      closeReviewStream()
-      isRunning.value = false
-      runState.value = {
-        ...runState.value,
-        status: 'completed',
-        progress: 100,
-        current_dimension: null,
-      }
-      agentStages.value = completeReporterStage(agentStages.value)
-      report.value = mapReportToViewModel(payload)
-      issueState.value = mergeIssueStatuses(issueState.value, report.value.issues)
-      goToRoute(HASH_ROUTES.report)
-    },
-    onError(payload) {
-      appendStreamLine(payload?.message || '评审连接异常')
-
-      if (payload?.recoverable) {
-        runState.value = {
-          ...runState.value,
-          status: 'reviewing',
-        }
-        return
-      }
-
-      closeReviewStream()
-      isRunning.value = false
-      runState.value = {
-        ...runState.value,
-        status: 'error',
-      }
-      uploadError.value = payload?.message || '评审失败，请稍后重试'
-    },
-  })
 }
 
 async function startReviewFlow() {
   if (isRunning.value) return
-
-  if (!selectedFile.value) {
+  const fileError = validateFile(selectedFile.value)
+  if (fileError) {
     uploadState.value = 'error'
-    uploadError.value = '请先选择一个 PRD 文档'
+    uploadError.value = fileError
+    return
+  }
+  if (!apiConfig.value.apiKey.trim() || !apiConfig.value.model.trim()) {
+    uploadError.value = '请先填写 API Key 和模型名'
     return
   }
 
-  resetReviewRun()
+  cancelReview()
+  streamText.value = ''
+  agentStages.value = createAgentStages()
+  dimensions.value = createBaseDimensions()
+  report.value = createEmptyReportViewModel()
+  issueState.value = {}
+  selectedIssue.value = null
+  resetAssistantState()
   isRunning.value = true
-  runState.value = {
-    ...createRunState(),
-    status: 'uploading',
-  }
+  uploadState.value = 'uploading'
+  uploadError.value = ''
+  runState.value = { ...createRunState(), status: 'reviewing' }
+  reviewController = new AbortController()
 
   try {
-    const activeSessionId = await ensureUploadedSession()
-    await startReview({
-      sessionId: activeSessionId,
-      preset: preset.value,
+    await startReviewStream({
+      file: selectedFile.value,
+      provider: apiConfig.value.provider,
+      apiKey: apiConfig.value.apiKey,
+      model: apiConfig.value.model,
+      preset: apiConfig.value.preset,
+      signal: reviewController.signal,
+      onConnected: () => appendStreamLine(`已连接 ${providerLabel.value}`),
+      onDimensionStart: (payload) => {
+        markDimensionStatus(payload.dimension, 'active')
+        agentStages.value = applyDimensionEvent(agentStages.value, 'start', payload.dimension)
+        runState.value = { ...runState.value, current_dimension: payload.dimension }
+      },
+      onDimensionComplete: (payload) => {
+        markDimensionStatus(payload.dimension, payload.status === 'degraded' ? 'error' : 'complete')
+        agentStages.value = applyDimensionEvent(agentStages.value, 'complete', payload.dimension)
+        const completed = Array.from(new Set([...runState.value.completed_dimensions, payload.dimension]))
+        runState.value = { ...runState.value, completed_dimensions: completed, progress: Math.round((completed.length / dimensions.value.length) * 100) }
+        appendStreamLine(`${payload.dimension}：${payload.status === 'degraded' ? `降级（${payload.message}）` : `${payload.score}/10`}`)
+      },
+      onStreaming: (payload) => {
+        appendStreamLine(payload.content)
+        agentStages.value = applyStreamingMessage(agentStages.value, payload.content || '')
+      },
+      onComplete: (payload) => {
+        report.value = mapReportToViewModel(payload)
+        issueState.value = mergeIssueStatuses({}, report.value.issues)
+      },
+      onError: (payload) => appendStreamLine(payload.message || '评审失败'),
     })
 
-    runState.value = {
-      ...createRunState(),
-      status: 'reviewing',
-    }
-    openReviewStream(activeSessionId)
+    if (!report.value.rawReport) throw new Error('评审流结束但没有生成报告')
+    isRunning.value = false
+    uploadState.value = 'uploaded'
+    runState.value = { ...runState.value, status: 'completed', progress: 100, current_dimension: null }
+    agentStages.value = completeReporterStage(agentStages.value)
+    assistantStatus.value = 'model'
+    assistantResponseMode.value = 'model'
     goToRoute(HASH_ROUTES.report)
   } catch (error) {
-    closeReviewStream()
+    if (error?.name === 'AbortError') return
     isRunning.value = false
     uploadState.value = 'error'
-    uploadError.value = error instanceof Error ? error.message : '评审启动失败'
-    runState.value = {
-      ...runState.value,
-      status: 'error',
-    }
+    uploadError.value = error instanceof Error ? error.message : '评审失败，请稍后重试'
+    runState.value = { ...runState.value, status: 'error' }
+  } finally {
+    reviewController = null
   }
 }
 
 function handleIssueSelection(issueOrId) {
-  const nextIssue =
-    typeof issueOrId === 'string' ? findIssueById(report.value, issueOrId) : issueOrId
-
-  if (!nextIssue) return
-  selectedIssue.value = nextIssue
+  const next = typeof issueOrId === 'string' ? findIssueById(report.value, issueOrId) : issueOrId
+  if (!next) return
+  selectedIssue.value = next
+  if (currentRoute.value === HASH_ROUTES.report && canOpenAssistant.value) goToRoute(HASH_ROUTES.assistant)
 }
 
 function handleIssueStatusChange(payload) {
   const issueId = payload?.issueId || getIssueIdentifier(payload?.issue)
-  if (!issueId) return
-  issueState.value = updateIssueStatus(issueState.value, issueId, payload.status)
+  if (issueId) issueState.value = updateIssueStatus(issueState.value, issueId, payload.status)
 }
 
 function exportSuggestions() {
-  const exportPayload = buildExportPayload({
-    fileName: 'prd-review-suggestions.md',
-    issues: buildIssueExportItems(report.value.issues, issueState.value),
-  })
-
+  const exportPayload = buildExportPayload({ fileName: 'prd-review-suggestions.md', issues: buildIssueExportItems(report.value.issues, issueState.value) })
   if (typeof document === 'undefined') return
-
-  const blob = new Blob([exportPayload.content], { type: exportPayload.mimeType })
-  const url = URL.createObjectURL(blob)
+  const url = URL.createObjectURL(new Blob([exportPayload.content], { type: exportPayload.mimeType }))
   const link = document.createElement('a')
   link.href = url
   link.download = exportPayload.fileName
@@ -438,63 +327,30 @@ function exportSuggestions() {
 }
 
 function addChatMessage(role, content, extra = {}) {
-  chatMessages.value = [
-    ...chatMessages.value,
-    {
-      role,
-      content,
-      timestamp: new Date().toISOString(),
-      ...extra,
-    },
-  ]
-}
-
-function resolveSelectedIssueId() {
-  return selectedIssue.value?.issueKey || selectedIssue.value?.displayId || selectedIssue.value?.id || null
+  chatMessages.value = [...chatMessages.value, { role, content, timestamp: new Date().toISOString(), ...extra }]
 }
 
 async function submitChatMessage(message) {
   const content = String(message || '').trim()
-  if (!content) return
-
-  if (!sessionId.value) {
-    addChatMessage('system', '完成一次评审后，才能继续在助手里追问。')
-    return
-  }
-
+  if (!content || !canOpenAssistant.value) return
   addChatMessage('user', content)
   isChatLoading.value = true
-
   try {
-    const normalized = normalizeChatResponse(
-      await sendChatMessage({
-        sessionId: sessionId.value,
-        message: content,
-        selectedIssueId: resolveSelectedIssueId(),
-      }),
-    )
-
+    const normalized = normalizeChatResponse(await sendChatMessage({
+      provider: apiConfig.value.provider,
+      apiKey: apiConfig.value.apiKey,
+      model: apiConfig.value.model,
+      report: report.value.rawReport,
+      message: content,
+      selectedIssueId: selectedIssueId.value || null,
+    }))
     assistantSuggestedActions.value = normalized.suggestedActions
     assistantSourceRefs.value = normalized.sourceRefs
     assistantStatus.value = normalized.assistantStatus
     assistantResponseMode.value = normalized.responseMode
-
-    const targetIssue =
-      findIssueById(report.value, normalized.targetIssueId) ||
-      findIssueById(
-        report.value,
-        normalized.selectedIssue?.issueKey ||
-          normalized.selectedIssue?.displayId ||
-          normalized.selectedIssue?.id,
-      )
-
-    if (targetIssue) {
-      selectedIssue.value = targetIssue
-    }
-
-    addChatMessage('assistant', normalized.message || '助手未返回可展示的内容。', {
-      sourceRefs: normalized.sourceRefs,
-    })
+    const target = findIssueById(report.value, normalized.targetIssueId)
+    if (target) selectedIssue.value = target
+    addChatMessage('assistant', normalized.message || '助手未返回可展示的内容。', { sourceRefs: normalized.sourceRefs })
   } catch (error) {
     assistantStatus.value = 'error'
     assistantResponseMode.value = 'error'
@@ -506,109 +362,47 @@ async function submitChatMessage(message) {
 
 async function handleAssistantAction(action) {
   if (!action) return
-
-  if (action.type === 'rerun') {
-    goToRoute(HASH_ROUTES.workbench)
-    await startReviewFlow()
-    return
-  }
-
-  if (action.type === 'focus_issue' && action.issue_id) {
-    handleIssueSelection(action.issue_id)
-    goToRoute(HASH_ROUTES.report)
-    return
-  }
-
+  if (action.type === 'rerun') { goToRoute(HASH_ROUTES.workbench); return }
+  if (action.type === 'focus_issue' && action.issue_id) { handleIssueSelection(action.issue_id); return }
   if (action.type === 'retry_chat') {
-    const lastUserMessage = [...chatMessages.value].reverse().find((item) => item.role === 'user')
-    if (lastUserMessage) {
-      await submitChatMessage(lastUserMessage.content)
-    }
+    const last = [...chatMessages.value].reverse().find((item) => item.role === 'user')
+    if (last) await submitChatMessage(last.content)
     return
   }
-
-  if (action.type === 'switch_preset' && action.preset) {
-    preset.value = action.preset
-    goToRoute(HASH_ROUTES.workbench)
-    return
-  }
-
-  if (action.type === 'generate_suggestion') {
-    await submitChatMessage('给我修改建议')
-    return
-  }
-
-  if (action.label) {
-    await submitChatMessage(action.label)
-  }
+  if (action.type === 'switch_preset' && action.preset) { updateApiConfig({ preset: action.preset }); goToRoute(HASH_ROUTES.workbench); return }
+  await submitChatMessage(action.type === 'generate_suggestion' ? '给我修改建议' : action.label)
 }
 
-watch(
-  () => report.value.issues,
-  (issues) => {
-    issueState.value = mergeIssueStatuses(issueState.value, issues || [])
+watch(() => report.value.issues, (issues) => {
+  issueState.value = mergeIssueStatuses(issueState.value, issues || [])
+  if (selectedIssue.value) selectedIssue.value = findIssueById(report.value, selectedIssueId.value)
+}, { deep: true })
 
-    if (!selectedIssue.value) return
-    selectedIssue.value = findIssueById(report.value, selectedIssueId.value)
-  },
-  { deep: true },
-)
-
-onMounted(() => {
-  if (typeof window === 'undefined') return
-  syncRouteFromHash()
-  window.addEventListener('hashchange', syncRouteFromHash)
+onMounted(async () => {
+  if (typeof window !== 'undefined') {
+    syncRouteFromHash()
+    window.addEventListener('hashchange', syncRouteFromHash)
+  }
+  try {
+    const catalog = await loadProviderCatalog()
+    if (Array.isArray(catalog.providers) && catalog.providers.length) providers.value = catalog.providers
+  } catch {
+    // Built-in catalog keeps the UI usable when the API is starting up.
+  }
 })
 
 onBeforeUnmount(() => {
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('hashchange', syncRouteFromHash)
-  }
-  closeReviewStream()
+  cancelReview()
+  if (typeof window !== 'undefined') window.removeEventListener('hashchange', syncRouteFromHash)
 })
 </script>
 
 <style scoped>
-.app-shell {
-  min-height: 100vh;
-  background: #fef8f1;
-}
-
-.route-actions {
-  position: fixed;
-  top: 80px;
-  right: 24px;
-  z-index: 950;
-}
-
-.route-button {
-  border: 1px solid #d8e1ef;
-  background: #ffffff;
-  border-radius: 999px;
-  padding: 10px 15px;
-  cursor: pointer;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #334155;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
-}
-
-.route-button.primary {
-  border-color: #3a2e47;
-  background: linear-gradient(to right, #3a2e47, #51445f);
-  color: #ffffff;
-}
-
-.route-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-@media (max-width: 1180px) {
-  .route-actions {
-    left: 20px;
-    right: auto;
-  }
-}
+.app-shell { min-height: 100vh; background: #f6f0e5; }
+.route-actions { position: fixed; top: 80px; right: 24px; z-index: 950; }
+.route-button { border: 1px solid #1f1d19; background: #fffdf8; border-radius: 10px; padding: 10px 15px; cursor: pointer; font-weight: 750; color: #27241f; box-shadow: 0 10px 24px rgba(32, 29, 23, .09); }
+.route-button.primary { background: #1f1d19; color: #fff; }
+.route-button.primary:hover { background: #ff5a1f; border-color: #ff5a1f; }
+.route-button:disabled { opacity: .45; cursor: not-allowed; }
+@media (max-width: 1180px) { .route-actions { left: 20px; right: auto; } }
 </style>

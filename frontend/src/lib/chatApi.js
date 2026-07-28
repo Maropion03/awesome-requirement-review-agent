@@ -7,7 +7,10 @@ async function parseJsonResponse(response) {
   const data = await response.json().catch(() => null)
 
   if (!response.ok) {
-    const detail = data?.detail || `Request failed with status ${response.status}`
+    const rawDetail = data?.detail
+    const detail = Array.isArray(rawDetail)
+      ? rawDetail.map((item) => item?.msg || String(item)).join('；')
+      : rawDetail || `Request failed with status ${response.status}`
     throw new Error(detail)
   }
 
@@ -16,10 +19,12 @@ async function parseJsonResponse(response) {
 
 export async function sendChatMessage({
   baseUrl = DEFAULT_API_BASE_URL,
-  sessionId,
+  provider,
+  apiKey,
+  model,
+  report,
   message,
   selectedIssueId = null,
-  contextMode = 'default',
   fetchImpl = fetch,
 }) {
   const response = await requestJsonWithFallback({
@@ -31,10 +36,12 @@ export async function sendChatMessage({
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        session_id: sessionId,
+        provider,
+        api_key: apiKey,
+        model,
+        report,
         message,
         selected_issue_id: selectedIssueId,
-        context_mode: contextMode,
       }),
     },
     fetchImpl,

@@ -3,7 +3,7 @@
     <header class="assistant-page-header">
       <div>
         <h2>报告摘要与评审助手</h2>
-        <p class="subtitle">保留当前会话，继续追问结论、原文和修改建议。</p>
+        <p class="subtitle">报告和 Key 都由当前页面持有；每次追问都是无状态请求。</p>
       </div>
     </header>
 
@@ -11,7 +11,7 @@
       <section class="assistant-summary-grid">
         <article class="assistant-summary-card primary">
           <span class="label">综合评分</span>
-          <strong>{{ report.score }}/10</strong>
+          <strong>{{ report.score }}/100</strong>
           <p>{{ report.summary }}</p>
         </article>
         <article class="assistant-summary-card" :class="recommendationClass">
@@ -21,10 +21,9 @@
           <p v-else>点击问题或直接提问，助手会带着当前报告上下文继续回答。</p>
         </article>
         <article class="assistant-summary-card">
-          <span class="label">会话状态</span>
-          <strong>{{ sessionId ? '已连接' : '未开始' }}</strong>
-          <p v-if="sessionId">Session：{{ sessionId.substring(0, 8) }}...</p>
-          <p v-else>上传并完成一次评审后，可以继续在这里对话。</p>
+          <span class="label">当前连接</span>
+          <strong>{{ canChat ? '请求就绪' : '缺少 Key' }}</strong>
+          <p>{{ providerLabel || '返回工作台填写 API Key' }}</p>
         </article>
         <article class="assistant-summary-card" :class="assistantStatusClass">
           <span class="label">模型状态</span>
@@ -43,7 +42,7 @@
           :selected-issue="selectedIssue"
           :assistant-status="assistantStatus"
           :response-mode="assistantResponseMode"
-          :can-chat="Boolean(sessionId)"
+          :can-chat="canChat"
           :is-loading="isChatLoading"
           @send-message="submitChatMessage"
           @run-action="handleAssistantAction"
@@ -60,7 +59,8 @@ import AssistantPanel from '../AssistantPanel.vue'
 
 const props = defineProps({
   report: Object,
-  sessionId: String,
+  canChat: Boolean,
+  providerLabel: String,
   chatMessages: Array,
   selectedIssue: Object,
   assistantSuggestedActions: Array,

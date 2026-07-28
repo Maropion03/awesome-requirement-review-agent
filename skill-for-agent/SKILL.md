@@ -18,13 +18,14 @@ Use this skill when the user wants a local, deterministic PRD review from a file
 Install dependencies first:
 
 ```bash
-pip install -r /Users/ann/skill-for-agent/requirements.txt
+cd <directory-containing-this-SKILL.md>
+python3 -m pip install -r requirements.txt
 ```
 
 Run:
 
 ```bash
-python3 /Users/ann/skill-for-agent/scripts/run_review.py <prd_file> --preset normal --format markdown
+python3 scripts/run_review.py <prd_file> --preset normal --format markdown
 ```
 
 Optional:

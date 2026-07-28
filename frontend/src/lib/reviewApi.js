@@ -1,20 +1,19 @@
 const DEFAULT_API_BASE_URL =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) || '/api'
-const DEV_FALLBACK_API_BASE_URL = 'http://127.0.0.1:8005/api'
+
+export const PROVIDER_FALLBACKS = [
+  { id: 'minimax', name: 'MiniMax', protocol: 'openai', default_model: 'MiniMax-M2.7', key_hint: 'MiniMax API Key' },
+  { id: 'openai', name: 'OpenAI', protocol: 'openai', default_model: 'gpt-5.2', key_hint: 'sk-...' },
+  { id: 'anthropic', name: 'Anthropic', protocol: 'anthropic', default_model: 'claude-sonnet-5', key_hint: 'sk-ant-...' },
+  { id: 'deepseek', name: 'DeepSeek', protocol: 'openai', default_model: 'deepseek-v4-flash', key_hint: 'sk-...' },
+  { id: 'gemini', name: 'Google Gemini', protocol: 'openai', default_model: 'gemini-3.6-flash', key_hint: 'Google AI API Key' },
+  { id: 'openrouter', name: 'OpenRouter', protocol: 'openai', default_model: '~openai/gpt-latest', key_hint: 'sk-or-v1-...' },
+]
 
 export function createApiUrl(baseUrl = DEFAULT_API_BASE_URL, path = '') {
   const normalizedBaseUrl = String(baseUrl).replace(/\/+$/, '')
   const normalizedPath = String(path).replace(/^\/+/, '')
   return `${normalizedBaseUrl}/${normalizedPath}`
-}
-
-function shouldUseDevFallback(baseUrl) {
-  return String(baseUrl).startsWith('/')
-}
-
-function isStructuredJsonResponse(response) {
-  const contentType = response?.headers?.get?.('content-type') || ''
-  return contentType.toLowerCase().includes('application/json')
 }
 
 export async function requestJsonWithFallback({
@@ -23,78 +22,54 @@ export async function requestJsonWithFallback({
   options = {},
   fetchImpl = fetch,
 }) {
-  const primaryUrl = createApiUrl(baseUrl, path)
-
-  try {
-    const response = await fetchImpl(primaryUrl, options)
-
-    if (
-      response.status === 404 &&
-      shouldUseDevFallback(baseUrl) &&
-      !isStructuredJsonResponse(response)
-    ) {
-      return fetchImpl(createApiUrl(DEV_FALLBACK_API_BASE_URL, path), options)
-    }
-
-    return response
-  } catch (error) {
-    if (!shouldUseDevFallback(baseUrl)) {
-      throw error
-    }
-
-    return fetchImpl(createApiUrl(DEV_FALLBACK_API_BASE_URL, path), options)
-  }
+  return fetchImpl(createApiUrl(baseUrl, path), options)
 }
 
 async function parseJsonResponse(response) {
   const data = await response.json().catch(() => null)
 
   if (!response.ok) {
-    const detail = data?.detail || `Request failed with status ${response.status}`
+    const rawDetail = data?.detail
+    const detail = Array.isArray(rawDetail)
+      ? rawDetail.map((item) => item?.msg || String(item)).join('；')
+      : rawDetail || `Request failed with status ${response.status}`
     throw new Error(detail)
   }
 
   return data
 }
 
-export async function uploadPrd({
+export async function loadProviderCatalog({
   baseUrl = DEFAULT_API_BASE_URL,
-  file,
   fetchImpl = fetch,
-}) {
-  const body = new FormData()
-  body.append('file', file)
-
+} = {}) {
   const response = await requestJsonWithFallback({
     baseUrl,
-    path: '/review/upload',
-    options: {
-      method: 'POST',
-      body,
-    },
+    path: '/providers',
     fetchImpl,
   })
-
   return parseJsonResponse(response)
 }
 
-export async function startReview({
+export async function validateProvider({
   baseUrl = DEFAULT_API_BASE_URL,
-  sessionId,
-  preset,
+  provider,
+  apiKey,
+  model,
   fetchImpl = fetch,
 }) {
   const response = await requestJsonWithFallback({
     baseUrl,
-    path: '/review/start',
+    path: '/providers/validate',
     options: {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        session_id: sessionId,
-        preset,
+        provider,
+        api_key: apiKey,
+        model,
       }),
     },
     fetchImpl,
@@ -103,10 +78,27 @@ export async function startReview({
   return parseJsonResponse(response)
 }
 
-export function createReviewStream({
+function dispatchReviewEvent(payload, callbacks) {
+  const handlers = {
+    connected: callbacks.onConnected,
+    dimension_start: callbacks.onDimensionStart,
+    dimension_complete: callbacks.onDimensionComplete,
+    streaming: callbacks.onStreaming,
+    complete: (value) => callbacks.onComplete?.(value.report || value),
+    error: callbacks.onError,
+  }
+  handlers[payload.event]?.(payload)
+}
+
+export async function startReviewStream({
   baseUrl = DEFAULT_API_BASE_URL,
-  sessionId,
-  EventSourceImpl = EventSource,
+  file,
+  provider,
+  apiKey,
+  model,
+  preset,
+  signal,
+  fetchImpl = fetch,
   onConnected,
   onDimensionStart,
   onDimensionComplete,
@@ -114,54 +106,42 @@ export function createReviewStream({
   onComplete,
   onError,
 }) {
-  const stream = new EventSourceImpl(createApiUrl(baseUrl, `/review/stream/${sessionId}`))
-  const CONNECTING_STATE = EventSourceImpl.CONNECTING ?? 0
-  const CLOSED_STATE = EventSourceImpl.CLOSED ?? 2
+  const body = new FormData()
+  body.append('file', file)
+  body.append('provider', provider)
+  body.append('api_key', apiKey)
+  body.append('model', model)
+  body.append('preset', preset)
 
-  stream.addEventListener('connected', (event) => {
-    onConnected?.(JSON.parse(event.data))
+  const response = await fetchImpl(createApiUrl(baseUrl, '/review/run'), {
+    method: 'POST',
+    body,
+    signal,
   })
+  if (!response.ok) return parseJsonResponse(response)
+  if (!response.body?.getReader) throw new Error('当前浏览器不支持流式响应')
 
-  stream.addEventListener('dimension_start', (event) => {
-    onDimensionStart?.(JSON.parse(event.data))
-  })
+  const callbacks = { onConnected, onDimensionStart, onDimensionComplete, onStreaming, onComplete, onError }
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let fatalError = null
 
-  stream.addEventListener('dimension_complete', (event) => {
-    onDimensionComplete?.(JSON.parse(event.data))
-  })
-
-  stream.addEventListener('streaming', (event) => {
-    onStreaming?.(JSON.parse(event.data))
-  })
-
-  stream.addEventListener('complete', (event) => {
-    const payload = JSON.parse(event.data)
-    onComplete?.(payload.report || payload)
-  })
-
-  stream.addEventListener('error', (event) => {
-    try {
-      const payload = JSON.parse(event.data)
-      onError?.({
-        ...payload,
-        recoverable: false,
-      })
-    } catch {
-      if (stream.readyState === CLOSED_STATE) {
-        onError?.({ message: '评审连接已关闭', recoverable: false })
-        return
-      }
-
-      if (stream.readyState === CONNECTING_STATE) {
-        onError?.({ message: '评审连接中断，正在重连', recoverable: true })
-        return
-      }
-
-      onError?.({ message: '评审连接异常', recoverable: true })
+  while (true) {
+    const { value, done } = await reader.read()
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+    for (const line of lines) {
+      if (!line.trim()) continue
+      const payload = JSON.parse(line)
+      dispatchReviewEvent(payload, callbacks)
+      if (payload.event === 'error') fatalError = new Error(payload.message || '评审失败')
     }
-  })
-
-  return stream
+    if (done) break
+  }
+  if (buffer.trim()) dispatchReviewEvent(JSON.parse(buffer), callbacks)
+  if (fatalError) throw fatalError
 }
 
 export function createBaseDimensions() {

@@ -1,9 +1,10 @@
 <template>
   <section class="card upload-card">
     <div class="section-head">
+      <div class="step-mark">01</div>
       <div>
         <h2>上传 PRD 文档</h2>
-        <p class="desc">支持 Markdown 或 Word 文档，上传完成后即可启动一次完整评审。</p>
+        <p class="desc">文档只在本次 Vercel 函数内存中解析，不写入服务器磁盘。</p>
       </div>
       <button
         v-if="modelValue"
@@ -33,7 +34,7 @@
       <span class="drop-title">
         {{ modelValue ? '替换当前文档' : '拖拽文件到此区域，或点击选择文件' }}
       </span>
-      <span class="drop-copy">支持 `.md`、`.docx`，建议文件大小不超过 10MB</span>
+      <span class="drop-copy">支持 .md、.docx · 最大 3.5MB</span>
     </label>
 
     <div class="upload-meta">
@@ -74,14 +75,14 @@ const isDragging = ref(false)
 
 const statusLabel = computed(() => {
   const labels = {
-    idle: '等待上传',
+    idle: '等待文档',
     ready: '已选择',
-    uploading: '上传中',
-    uploaded: '已上传',
-    error: '上传异常',
+    uploading: '处理中',
+    uploaded: '已就绪',
+    error: '文档异常',
   }
 
-  return labels[props.status] || '等待上传'
+  return labels[props.status] || '等待文档'
 })
 
 const statusClass = computed(() => props.status || 'idle')
@@ -121,11 +122,10 @@ function handleDrop(event) {
 
 <style scoped>
 .card {
-  background: #ffffff;
-  border: 1px solid transparent;
-  border-radius: 1rem;
-  padding: 16px;
-  box-shadow: 0 4px 6px rgba(31, 24, 23, 0.06);
+  background: #fffdf8;
+  border: 1px solid #1f1d19;
+  border-radius: 18px;
+  padding: 18px 20px;
 }
 
 .upload-card {
@@ -141,13 +141,26 @@ function handleDrop(event) {
   align-items: start;
 }
 
+.section-head > div:nth-child(2) { flex: 1; }
+.step-mark {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #ff5a1f;
+  color: #fff;
+  font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 h2,
 p {
   margin: 0;
 }
 
 h2 {
-  font-family: 'Satoshi', sans-serif;
+  font-family: 'Avenir Next', 'PingFang SC', sans-serif;
   font-size: 1.125rem;
   color: #1d1b17;
 }
@@ -176,7 +189,7 @@ h2 {
 }
 
 .dropzone {
-  border: 1.5px dashed #c7d3e3;
+  border: 1.5px dashed #a99f90;
   min-height: 160px;
   display: grid;
   gap: 8px;
@@ -187,14 +200,12 @@ h2 {
   transition: 0.2s ease;
   text-align: center;
   padding: 16px;
-  background:
-    linear-gradient(135deg, rgba(239, 246, 255, 0.65), rgba(255, 255, 255, 0.95)),
-    #ffffff;
+  background: #f7f2e8;
 }
 
 .dropzone.ready,
 .dropzone.uploaded {
-  border-color: #8bb3f2;
+  border-color: #ff5a1f;
 }
 
 .dropzone.uploading {
@@ -207,9 +218,9 @@ h2 {
 }
 
 .dropzone.dragging {
-  border-color: #3a2e47;
+  border-color: #ff5a1f;
   transform: translateY(-1px);
-  box-shadow: 0 12px 28px rgba(58, 46, 71, 0.08);
+  box-shadow: 0 12px 28px rgba(255, 90, 31, 0.12);
 }
 
 .dropzone.disabled {
