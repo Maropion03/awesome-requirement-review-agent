@@ -1,240 +1,485 @@
 <template>
-  <div class="assistant-page">
-    <header class="assistant-page-header">
+  <main class="assistant-page">
+    <header class="assistant-heading">
       <div>
-        <h2>报告摘要与评审助手</h2>
-        <p class="subtitle">报告和 Key 都由当前页面持有；每次追问都是无状态请求。</p>
+        <p class="eyebrow">Review assistant</p>
+        <h1>报告摘要与评审助手</h1>
+        <p>AI 助手会带着当前报告和选中的问题继续回答，刷新页面后上下文自动清除。</p>
       </div>
+      <button class="back-button" type="button" @click="$emit('back-to-report')">← 返回报告</button>
     </header>
 
-    <div class="assistant-content">
-      <section class="assistant-summary-grid">
-        <article class="assistant-summary-card primary">
-          <span class="label">综合评分</span>
-          <strong>{{ report.score }}/100</strong>
-          <p>{{ report.summary }}</p>
-        </article>
-        <article class="assistant-summary-card" :class="recommendationClass">
-          <span class="label">评审建议</span>
-          <strong>{{ report.suggestion }}</strong>
-          <p v-if="selectedIssue">当前聚焦：{{ selectedIssue.displayId || selectedIssue.id }} · {{ selectedIssue.title }}</p>
-          <p v-else>点击问题或直接提问，助手会带着当前报告上下文继续回答。</p>
-        </article>
-        <article class="assistant-summary-card">
-          <span class="label">当前连接</span>
-          <strong>{{ canChat ? '请求就绪' : '缺少 Key' }}</strong>
-          <p>{{ providerLabel || '返回工作台填写 API Key' }}</p>
-        </article>
-        <article class="assistant-summary-card" :class="assistantStatusClass">
-          <span class="label">模型状态</span>
-          <strong>{{ assistantStatusLabel }}</strong>
-          <p>{{ responseModeLabel }}</p>
-        </article>
-      </section>
+    <section class="assistant-stats" aria-label="助手上下文摘要">
+      <article>
+        <span>综合评分</span>
+        <strong>{{ report.score }}<small>/100</small></strong>
+      </article>
+      <article>
+        <span>评审建议</span>
+        <strong class="recommendation">{{ report.suggestion }}</strong>
+      </article>
+      <article>
+        <span>连接状态</span>
+        <strong class="status-value">
+          <i :class="{ ready: canChat }"></i>{{ canChat ? '请求就绪' : '缺少 Key' }}
+        </strong>
+      </article>
+      <article>
+        <span>当前模型</span>
+        <strong class="model-value">{{ providerLabel || '尚未配置' }}</strong>
+      </article>
+    </section>
 
-      <section class="assistant-main-area">
-        <AssistantPanel
-          class="assistant-panel-full"
-          :chat-messages="chatMessages"
-          :snapshot="assistantSnapshot"
-          :suggested-actions="assistantSuggestedActions"
-          :source-refs="assistantSourceRefs"
-          :selected-issue="selectedIssue"
-          :assistant-status="assistantStatus"
-          :response-mode="assistantResponseMode"
-          :can-chat="canChat"
-          :is-loading="isChatLoading"
-          @send-message="submitChatMessage"
-          @run-action="handleAssistantAction"
-          @select-issue="handleIssueSelectionById"
-        />
-      </section>
+    <div class="assistant-layout">
+      <AssistantPanel
+        class="conversation-panel"
+        :chat-messages="chatMessages"
+        :snapshot="assistantSnapshot"
+        :suggested-actions="assistantSuggestedActions"
+        :source-refs="assistantSourceRefs"
+        :selected-issue="selectedIssue"
+        :assistant-status="assistantStatus"
+        :response-mode="assistantResponseMode"
+        :can-chat="canChat"
+        :is-loading="isChatLoading"
+        @send-message="$emit('send-message', $event)"
+        @run-action="$emit('run-action', $event)"
+        @select-issue="$emit('select-issue', $event)"
+        @open-report="$emit('back-to-report')"
+      />
+
+      <aside class="context-rail" aria-label="报告上下文与快捷操作">
+        <section class="rail-section workflow-actions">
+          <p class="rail-label">Workflow</p>
+          <button type="button" @click="$emit('back-to-report')">
+            <span aria-hidden="true">←</span>
+            <span><strong>查看完整报告</strong><small>返回维度和问题详情</small></span>
+          </button>
+          <button type="button" @click="$emit('run-action', { type: 'generate_suggestion', label: '生成修改建议' })">
+            <span aria-hidden="true">✦</span>
+            <span><strong>生成修改建议</strong><small>基于当前问题给出修改稿</small></span>
+          </button>
+          <button type="button" @click="$emit('export-suggestions')">
+            <span aria-hidden="true">↓</span>
+            <span><strong>导出建议</strong><small>下载本地 Markdown 文件</small></span>
+          </button>
+          <button type="button" @click="$emit('rerun')">
+            <span aria-hidden="true">↻</span>
+            <span><strong>重新评审</strong><small>返回工作台确认后重跑</small></span>
+          </button>
+        </section>
+
+        <section class="rail-section selected-context">
+          <div class="rail-heading">
+            <p class="rail-label">Selected issue</p>
+            <span v-if="selectedIssue">{{ selectedIssue.displayId || selectedIssue.id }}</span>
+          </div>
+          <template v-if="selectedIssue">
+            <h2>{{ selectedIssue.title }}</h2>
+            <p>{{ selectedIssue.description }}</p>
+            <button
+              type="button"
+              @click="$emit('send-message', `请详细解释 ${selectedIssue.displayId || selectedIssue.id}，并给出可直接替换的修改稿`)"
+            >
+              围绕此问题提问 →
+            </button>
+          </template>
+          <p v-else>从报告页选择问题后，这里会展示对应上下文。</p>
+        </section>
+
+        <section class="rail-section report-summary">
+          <p class="rail-label">Report summary</p>
+          <p>{{ report.summary }}</p>
+        </section>
+
+        <section class="rail-section issue-shortcuts">
+          <div class="rail-heading">
+            <p class="rail-label">Issue shortcuts</p>
+            <span>{{ issues.length }}</span>
+          </div>
+          <div v-if="issues.length" class="shortcut-list">
+            <button
+              v-for="issue in issues.slice(0, 6)"
+              :key="issue.issueKey || issue.displayId || issue.id"
+              type="button"
+              :class="{ active: isSelected(issue) }"
+              @click="$emit('select-issue', issue.issueKey || issue.displayId || issue.id)"
+            >
+              <span>{{ issue.displayId || issue.id }}</span>
+              <strong>{{ issue.title }}</strong>
+            </button>
+          </div>
+          <p v-else>当前报告没有问题快捷入口。</p>
+        </section>
+      </aside>
     </div>
-  </div>
+  </main>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+
 import AssistantPanel from '../AssistantPanel.vue'
 
 const props = defineProps({
-  report: Object,
+  report: {
+    type: Object,
+    default: () => ({ score: '--', suggestion: '尚未生成', summary: '', issues: [] }),
+  },
   canChat: Boolean,
   providerLabel: String,
-  chatMessages: Array,
+  chatMessages: {
+    type: Array,
+    default: () => [],
+  },
   selectedIssue: Object,
-  assistantSuggestedActions: Array,
-  assistantSourceRefs: Array,
+  assistantSuggestedActions: {
+    type: Array,
+    default: () => [],
+  },
+  assistantSourceRefs: {
+    type: Array,
+    default: () => [],
+  },
   assistantStatus: String,
   assistantResponseMode: String,
   isChatLoading: Boolean,
   assistantSnapshot: Object,
 })
 
-const emit = defineEmits([
+defineEmits([
   'send-message',
   'run-action',
   'select-issue',
-  'update:chat-messages',
+  'back-to-report',
+  'export-suggestions',
+  'rerun',
 ])
 
-const recommendationClass = computed(() => {
-  const label = props.report.suggestion
-  if (label === 'APPROVE' || label === '通过') return 'approve'
-  if (label === 'MODIFY' || label === '修改后通过') return 'modify'
-  if (label === 'REJECT' || label === '驳回') return 'reject'
-  return 'pending'
-})
+const issues = computed(() => props.report.issues || [])
 
-const assistantStatusClass = computed(() => props.assistantStatus || 'unavailable')
-
-const assistantStatusLabel = computed(() => {
-  const labels = {
-    model: '模型回答',
-    unavailable: '模型未接入',
-    error: '模型异常',
-  }
-  return labels[props.assistantStatus] || props.assistantStatus || '未知'
-})
-
-const responseModeLabel = computed(() => {
-  const labels = {
-    model: '已使用个性化模型回复',
-    report_level: '当前使用报告级回复',
-    error: '模型失败后回退到报告级回复',
-  }
-  return labels[props.assistantResponseMode] || props.assistantResponseMode || '未识别'
-})
-
-const submitChatMessage = (message) => {
-  emit('send-message', message)
-}
-
-const handleAssistantAction = (action) => {
-  emit('run-action', action)
-}
-
-const handleIssueSelectionById = (issueId) => {
-  emit('select-issue', issueId)
+function isSelected(issue) {
+  if (!props.selectedIssue) return false
+  const selectedIds = [props.selectedIssue.issueKey, props.selectedIssue.displayId, props.selectedIssue.id]
+  return [issue.issueKey, issue.displayId, issue.id].some((id) => id && selectedIds.includes(id))
 }
 </script>
 
 <style scoped>
 .assistant-page {
-  padding: 88px 20px 20px 300px;
+  --primary: #3a2e47;
+  --primary-soft: #51445f;
+  --muted: #665974;
+  --surface: #fff;
+  --soft: #f8f3ec;
+  --line: #e4ddd5;
+  min-height: 100vh;
+  padding: 98px 28px 28px 312px;
   background: #fef8f1;
-  min-height: calc(100vh - 64px);
-  display: grid;
-  gap: 18px;
+  color: #1d1b17;
 }
 
-.assistant-page-header {
+.assistant-heading {
+  width: min(1320px, 100%);
+  margin: 0 auto 24px;
   display: flex;
-  justify-content: space-between;
-  gap: 16px;
   align-items: end;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 24px;
 }
 
-.assistant-content {
-  display: grid;
-  gap: 18px;
+.eyebrow,
+.rail-label {
+  margin: 0 0 8px;
+  color: #978f98;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
 }
 
-.assistant-summary-grid {
+h1 {
+  margin: 0;
+  color: var(--primary);
+  font-size: clamp(1.8rem, 3vw, 2.25rem);
+  letter-spacing: -0.035em;
+}
+
+.assistant-heading p:last-child {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.back-button {
+  min-height: 42px;
+  padding: 0 17px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--primary);
+  cursor: pointer;
+  font-weight: 750;
+  box-shadow: 0 10px 28px rgba(31, 24, 23, 0.06);
+}
+
+.assistant-stats {
+  width: min(1320px, 100%);
+  margin: 0 auto 20px;
   display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
-.assistant-summary-card {
-  background: #ffffff;
-  border: 1px solid #dbe3ef;
-  border-radius: 1rem;
-  padding: 16px;
+.assistant-stats article {
+  min-height: 108px;
+  padding: 18px 20px;
+  display: grid;
+  align-content: space-between;
+  gap: 10px;
+  border-bottom: 2px solid rgba(58, 46, 71, 0.07);
+  border-radius: 16px;
+  background: var(--soft);
+}
+
+.assistant-stats span {
+  color: var(--muted);
+  font-size: 0.63rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.assistant-stats strong {
+  min-width: 0;
+  color: var(--primary);
+  font-size: 1.55rem;
+  line-height: 1.15;
+}
+
+.assistant-stats small {
+  margin-left: 5px;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.assistant-stats .recommendation {
+  font-size: 1rem;
+}
+
+.assistant-stats .status-value {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 1rem;
+}
+
+.status-value i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #d58a18;
+}
+
+.status-value i.ready {
+  background: #2f8a5d;
+}
+
+.assistant-stats .model-value {
+  overflow: hidden;
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assistant-layout {
+  width: min(1320px, 100%);
+  min-height: 640px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 20px;
+  align-items: stretch;
+}
+
+.conversation-panel {
+  min-width: 0;
+}
+
+.context-rail {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  border-left: 1px solid var(--line);
+  background: var(--soft);
+}
+
+.rail-section {
+  min-width: 0;
+}
+
+.rail-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rail-heading > span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #ede7e0;
+  color: var(--primary);
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.workflow-actions {
+  display: grid;
+  gap: 9px;
+}
+
+.workflow-actions > button {
+  width: 100%;
+  padding: 13px 14px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  border: 0;
+  border-radius: 13px;
+  background: #fff;
+  color: var(--primary);
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 6px 18px rgba(31, 24, 23, 0.04);
+}
+
+.workflow-actions > button > span:first-child {
+  font-size: 1rem;
+  text-align: center;
+}
+
+.workflow-actions strong,
+.workflow-actions small {
+  display: block;
+}
+
+.workflow-actions strong {
+  font-size: 0.78rem;
+}
+
+.workflow-actions small {
+  margin-top: 3px;
+  color: #8c848d;
+  font-size: 0.64rem;
+  font-weight: 500;
+}
+
+.selected-context,
+.report-summary,
+.issue-shortcuts {
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+
+.selected-context h2 {
+  margin: 10px 0 8px;
+  color: var(--primary);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.selected-context > p,
+.report-summary > p:last-child,
+.issue-shortcuts > p:last-child {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.7;
+}
+
+.selected-context > button {
+  margin-top: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.shortcut-list {
   display: grid;
   gap: 8px;
 }
 
-.assistant-summary-card .label {
-  color: #64748b;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.75rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-weight: 500;
-}
-
-.assistant-summary-card strong {
-  font-family: 'Satoshi', sans-serif;
-  font-weight: 700;
-  font-size: 24px;
-  color: #0f172a;
-}
-
-.assistant-summary-card p {
-  margin: 0;
-  color: #64748b;
-  font-family: 'Inter', sans-serif;
-  line-height: 1.5;
-  font-size: 0.875rem;
-}
-
-.assistant-summary-card.primary {
-  background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
-}
-
-.assistant-summary-card.approve {
-  background: #f0fdf4;
-  border-color: #16a34a;
-}
-
-.assistant-summary-card.modify {
-  background: #fffbeb;
-  border-color: #f59e0b;
-}
-
-.assistant-summary-card.reject {
-  background: #fef2f2;
-  border-color: #dc2626;
-}
-
-.assistant-summary-card.pending {
-  background: #eff6ff;
-  border-color: #2563eb;
-}
-
-.assistant-main-area {
+.shortcut-list button {
+  width: 100%;
+  padding: 11px 12px;
   display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: start;
+  gap: 4px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--primary);
+  cursor: pointer;
+  text-align: left;
 }
 
-.assistant-panel-full {
-  min-width: 0;
-  height: 100%;
+.shortcut-list button.active {
+  border-color: #d1c0e1;
+  background: #fff;
 }
 
-h2 {
-  margin: 0;
-  font-family: 'Satoshi', sans-serif;
-  font-weight: 600;
-  font-size: 1.75rem;
-  color: #1d1b17;
-  letter-spacing: -0.02em;
+.shortcut-list span {
+  color: #9a2830;
+  font-size: 0.62rem;
+  font-weight: 850;
 }
 
-.subtitle {
-  font-family: 'Inter', sans-serif;
-  color: #64748b;
-  font-size: 0.875rem;
+.shortcut-list strong {
+  overflow: hidden;
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 1180px) {
   .assistant-page {
-    padding-left: 20px;
-    padding-top: 88px;
+    padding-left: 28px;
+  }
+}
+
+@media (max-width: 900px) {
+  .assistant-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .assistant-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .context-rail {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 620px) {
+  .assistant-page {
+    padding: 92px 16px 18px;
+  }
+
+  .assistant-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .assistant-stats {
+    grid-template-columns: 1fr;
   }
 }
 </style>

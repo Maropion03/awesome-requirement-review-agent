@@ -3,16 +3,6 @@
     <TopNavigation :current-project="currentProject" user-name="BYOK" user-initials="AI" />
     <SideBar :active-page="currentRoute" @navigate="goToRoute" />
 
-    <div v-if="currentRoute === HASH_ROUTES.report" class="route-actions">
-      <button class="route-button primary" type="button" :disabled="!canOpenAssistant" @click="goToRoute(HASH_ROUTES.assistant)">
-        进入对话
-      </button>
-    </div>
-
-    <div v-if="currentRoute === HASH_ROUTES.assistant" class="route-actions">
-      <button class="route-button" type="button" @click="goToRoute(HASH_ROUTES.report)">返回报告</button>
-    </div>
-
     <WorkbenchPage
       v-if="currentRoute === HASH_ROUTES.workbench"
       :selected-file-name="selectedFileName"
@@ -37,9 +27,12 @@
       :report="report"
       :issue-state="issueState"
       :selected-issue-id="selectedIssueId"
+      :can-open-assistant="canOpenAssistant"
       @issue-select="handleIssueSelection"
       @issue-status-change="handleIssueStatusChange"
       @export-suggestions="exportSuggestions"
+      @open-assistant="goToRoute(HASH_ROUTES.assistant)"
+      @rerun="goToRoute(HASH_ROUTES.workbench)"
     />
 
     <AssistantPage
@@ -58,6 +51,9 @@
       @send-message="submitChatMessage"
       @run-action="handleAssistantAction"
       @select-issue="handleIssueSelection"
+      @back-to-report="goToRoute(HASH_ROUTES.report)"
+      @export-suggestions="exportSuggestions"
+      @rerun="goToRoute(HASH_ROUTES.workbench)"
     />
   </div>
 </template>
@@ -398,11 +394,5 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.app-shell { min-height: 100vh; background: #f6f0e5; }
-.route-actions { position: fixed; top: 80px; right: 24px; z-index: 950; }
-.route-button { border: 1px solid #1f1d19; background: #fffdf8; border-radius: 10px; padding: 10px 15px; cursor: pointer; font-weight: 750; color: #27241f; box-shadow: 0 10px 24px rgba(32, 29, 23, .09); }
-.route-button.primary { background: #1f1d19; color: #fff; }
-.route-button.primary:hover { background: #ff5a1f; border-color: #ff5a1f; }
-.route-button:disabled { opacity: .45; cursor: not-allowed; }
-@media (max-width: 1180px) { .route-actions { left: 20px; right: auto; } }
+.app-shell { min-height: 100vh; background: #fef8f1; }
 </style>

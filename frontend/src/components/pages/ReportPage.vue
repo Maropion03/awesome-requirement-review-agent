@@ -1,47 +1,42 @@
 <template>
-  <div class="report-page">
-    <div class="page-header">
+  <main class="report-page">
+    <header class="report-heading">
       <div>
         <p class="eyebrow">PRD Review Report</p>
-        <h1>评审报告</h1>
-        <p class="subtitle">保留维度分析、问题证据和本地处理状态，方便快速进入对话闭环。</p>
+        <h1>评审报告<span v-if="projectName">：{{ projectName }}</span></h1>
+        <p class="report-meta">{{ reportMeta }}</p>
       </div>
-      <div class="header-meta">
-        <span class="meta-pill">评分：{{ report.score || '--' }}/100</span>
-        <span class="meta-pill">建议：{{ report.suggestion || '尚未生成' }}</span>
-        <span class="meta-pill">问题数：{{ report.issues?.length || 0 }}</span>
+
+      <div class="report-actions" aria-label="报告操作">
+        <button class="action-button" type="button" @click="$emit('export-suggestions')">
+          <span aria-hidden="true">↓</span>
+          导出建议
+        </button>
+        <button
+          class="action-button"
+          type="button"
+          :disabled="!canOpenAssistant"
+          @click="$emit('open-assistant')"
+        >
+          <span aria-hidden="true">✦</span>
+          进入助手
+        </button>
+        <button class="action-button primary" type="button" @click="$emit('rerun')">
+          <span aria-hidden="true">↻</span>
+          重新评审
+        </button>
       </div>
-    </div>
+    </header>
 
-    <div class="report-content">
-      <section class="summary-grid">
-        <article class="summary-card primary">
-          <span class="label">综合结论</span>
-          <strong>{{ report.suggestion || '尚未生成' }}</strong>
-          <p>{{ report.summary || '完成评审后，这里会出现结论摘要。' }}</p>
-        </article>
-        <article class="summary-card">
-          <span class="label">高优问题</span>
-          <strong>{{ highIssueCount }}</strong>
-          <p>需要立即明确负责人和修改口径的问题数量。</p>
-        </article>
-        <article class="summary-card">
-          <span class="label">本地跟踪</span>
-          <strong>{{ trackedIssueCount }}</strong>
-          <p>当前报告中已具备本地状态管理和导出能力的问题数。</p>
-        </article>
-      </section>
-
-      <ReportViewer
-        :report="report"
-        :issue-state="issueState"
-        :selected-issue-id="selectedIssueId"
-        @issue-select="$emit('issue-select', $event)"
-        @issue-status-change="$emit('issue-status-change', $event)"
-        @export-suggestions="$emit('export-suggestions')"
-      />
-    </div>
-  </div>
+    <ReportViewer
+      :report="report"
+      :issue-state="issueState"
+      :selected-issue-id="selectedIssueId"
+      @issue-select="$emit('issue-select', $event)"
+      @issue-status-change="$emit('issue-status-change', $event)"
+      @export-suggestions="$emit('export-suggestions')"
+    />
+  </main>
 </template>
 
 <script setup>
@@ -57,6 +52,7 @@ const props = defineProps({
       suggestion: '尚未生成',
       summary: '完成评审后，这里会出现结论摘要。',
       issues: [],
+      rawReport: null,
     }),
   },
   issueState: {
@@ -67,134 +63,139 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  canOpenAssistant: {
+    type: Boolean,
+    default: false,
+  },
 })
 
-defineEmits(['issue-select', 'issue-status-change', 'export-suggestions'])
+defineEmits([
+  'issue-select',
+  'issue-status-change',
+  'export-suggestions',
+  'open-assistant',
+  'rerun',
+])
 
-const highIssueCount = computed(() => {
-  return (props.report.issues || []).filter((issue) => issue.severity === 'HIGH').length
+const projectName = computed(() => props.report.rawReport?.project_name || '')
+
+const reportMeta = computed(() => {
+  const raw = props.report.rawReport || {}
+  const date = raw.review_date || '本次评审'
+  const preset = raw.preset || 'normal'
+  return `${date} · ${preset} 模式 · ${props.report.issues?.length || 0} 个问题`
 })
-
-const trackedIssueCount = computed(() => Object.keys(props.issueState || {}).length)
 </script>
 
 <style scoped>
 .report-page {
-  padding: 88px 20px 20px 300px;
-  background: #fef8f1;
+  --report-primary: #3a2e47;
+  --report-muted: #665f69;
+  --report-surface: #fff;
+  --report-line: #e6dfd7;
   min-height: calc(100vh - 64px);
-  display: grid;
-  gap: 18px;
+  padding: 104px 32px 72px 312px;
+  background: #fef8f1;
+  color: #1d1b17;
 }
 
-.page-header {
+.report-heading {
+  width: min(1280px, 100%);
+  margin: 0 auto 36px;
   display: flex;
-  justify-content: space-between;
-  gap: 16px;
   align-items: end;
-  flex-wrap: wrap;
-}
-
-.eyebrow,
-.subtitle,
-.meta-pill,
-.summary-card,
-.summary-card .label {
-  font-family: 'Inter', sans-serif;
+  justify-content: space-between;
+  gap: 24px;
 }
 
 .eyebrow {
-  margin: 0 0 4px;
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
+  margin: 0 0 8px;
+  color: #978f98;
+  font-size: 0.6875rem;
+  font-weight: 750;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: #64748b;
-}
-
-h1,
-.summary-card strong {
-  font-family: 'Satoshi', sans-serif;
 }
 
 h1 {
   margin: 0;
-  font-weight: 600;
-  font-size: 1.75rem;
-  color: #1d1b17;
-  letter-spacing: -0.02em;
+  color: var(--report-primary);
+  font-family: 'Avenir Next', 'PingFang SC', sans-serif;
+  font-size: clamp(1.8rem, 3vw, 2.35rem);
+  font-weight: 750;
+  letter-spacing: -0.035em;
 }
 
-.subtitle {
-  color: #64748b;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  margin: 4px 0 0;
+.report-meta {
+  margin: 8px 0 0;
+  color: var(--report-muted);
+  font-size: 0.8125rem;
 }
 
-.header-meta {
+.report-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
-.meta-pill {
-  border: 1px solid #d8e1ef;
-  background: #ffffff;
+.action-button {
+  min-height: 42px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--report-line);
   border-radius: 999px;
-  padding: 8px 12px;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: #4b5563;
+  background: var(--report-surface);
+  color: var(--report-primary);
+  box-shadow: 0 10px 28px rgba(31, 24, 23, 0.06);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
 
-.report-content {
-  display: grid;
-  gap: 18px;
+.action-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(31, 24, 23, 0.1);
 }
 
-.summary-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+.action-button.primary {
+  border-color: var(--report-primary);
+  background: var(--report-primary);
+  color: #fff;
 }
 
-.summary-card {
-  background: #ffffff;
-  border: 1px solid #dbe3ef;
-  border-radius: 1rem;
-  padding: 16px;
-  display: grid;
-  gap: 8px;
-}
-
-.summary-card.primary {
-  background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
-}
-
-.summary-card .label {
-  color: #64748b;
-  font-size: 0.75rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-weight: 600;
-}
-
-.summary-card strong {
-  font-size: 1.45rem;
-  color: #0f172a;
-}
-
-.summary-card p {
-  margin: 0;
-  color: #64748b;
-  line-height: 1.5;
-  font-size: 0.875rem;
+.action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 @media (max-width: 1180px) {
   .report-page {
-    padding-left: 20px;
-    padding-top: 88px;
+    padding-left: 28px;
+  }
+}
+
+@media (max-width: 760px) {
+  .report-page {
+    padding: 92px 18px 52px;
+  }
+
+  .report-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .report-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .action-button {
+    flex: 1 1 130px;
   }
 }
 </style>

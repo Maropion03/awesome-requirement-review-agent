@@ -21,41 +21,52 @@ test('primary workspace exposes document, BYOK configuration, progress, and repo
   assert.match(configPanel, /localStorage/)
 
   assert.match(reviewProgress, />评审进度</)
-  assert.match(reportViewer, />评审报告</)
+  assert.match(reportViewer, /结论摘要/)
+  assert.match(reportViewer, /详细问题/)
 })
 
 test('app copy keeps plain titles and exposes a single chat entry button', () => {
   const app = readSourceFile('src/App.vue')
+  const reportPage = readSourceFile('src/components/pages/ReportPage.vue')
 
   assert.doesNotMatch(app, /sessionId|EventSource|localStorage/)
-  assert.match(app, /进入对话/)
+  assert.match(reportPage, /进入助手/)
+  assert.equal((reportPage.match(/进入助手/g) || []).length, 1)
 })
 
 test('assistant page uses a back-to-report button instead of rerun trigger', () => {
   const app = readSourceFile('src/App.vue')
+  const assistantPage = readSourceFile('src/components/pages/AssistantPage.vue')
 
   assert.match(app, /goToRoute\(HASH_ROUTES\.report\)/)
-  assert.match(app, />\s*返回报告\s*</)
+  assert.match(assistantPage, /back-to-report/)
+  assert.match(assistantPage, /返回报告/)
 })
 
 test('assistant panel emphasizes conversation and composer visually', () => {
   const assistantPanel = readSourceFile('src/components/AssistantPanel.vue')
 
-  assert.match(assistantPanel, /class="thread prominent"/)
-  assert.match(assistantPanel, /class="composer composer-prominent"/)
+  assert.match(assistantPanel, /class="message-list"/)
+  assert.match(assistantPanel, /class="composer"/)
+  assert.match(assistantPanel, /typing-indicator/)
+  assert.match(assistantPanel, /starter-prompts/)
+  assert.match(assistantPanel, /\$emit\('open-report'\)/)
 })
 
-test('assistant panel shows expand guidance for collapsible sections', () => {
-  const assistantPanel = readSourceFile('src/components/AssistantPanel.vue')
+test('assistant page restores the formal workflow context rail', () => {
+  const assistantPage = readSourceFile('src/components/pages/AssistantPage.vue')
 
-  assert.match(assistantPanel, /class="summary-cue"/)
-  assert.match(assistantPanel, /class="summary-arrow"/)
+  assert.match(assistantPage, /class="context-rail"/)
+  assert.match(assistantPage, /Workflow/)
+  assert.match(assistantPage, /Selected issue/)
+  assert.match(assistantPage, /Issue shortcuts/)
+  assert.doesNotMatch(assistantPage, /class="assistant-summary-grid"/)
 })
 
 test('report viewer exposes evidence block for issue source references', () => {
   const reportViewer = readSourceFile('src/components/ReportViewer.vue')
 
-  assert.match(reportViewer, /issue-evidence/)
+  assert.match(reportViewer, /evidence-quote/)
   assert.match(reportViewer, /sourceQuote|sourceSection|sourceLocator/)
 })
 
