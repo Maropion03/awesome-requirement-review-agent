@@ -1,10 +1,26 @@
 # Awesome Requirement Review Agent
 
+[![CI](https://github.com/Maropion03/awesome-requirement-review-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Maropion03/awesome-requirement-review-agent/actions/workflows/ci.yml)
+[![Live on Vercel](https://img.shields.io/badge/live-Vercel-000000?logo=vercel)](https://awesome-requirement-review-agent.vercel.app)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI 0.140.7](https://img.shields.io/badge/FastAPI-0.140.7-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Vue 3](https://img.shields.io/badge/Vue-3-42B883?logo=vuedotjs&logoColor=white)](https://vuejs.org/)
+[![BYOK](https://img.shields.io/badge/AI-BYOK-ef6c00)](#api-key-handling)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
 An open-source PRD review workbench for product teams. Bring your own model API key, upload a Markdown or DOCX PRD, and receive a six-dimension review with evidence, scores, and actionable revisions.
 
 > The app is stateless. It has no built-in MiniMax key, no account system, and no server-side document or report storage.
 
-[中文说明](./README_CN.md)
+**[Open the live workbench](https://awesome-requirement-review-agent.vercel.app)** · [中文说明](./README_CN.md)
+
+## Highlights
+
+- Six concurrent review dimensions: completeness, rationality, user value, technical feasibility, implementation risk, and priority alignment.
+- Evidence-linked issues with severity, actionable revisions, local handling status, and Markdown export.
+- Report-aware follow-up assistant that can explain conclusions, locate source text, and draft PRD-ready changes.
+- Dedicated browser-persisted BYOK settings for six mainstream model providers.
+- Stateless Vercel architecture: no built-in model key, account system, server session, or document database.
 
 ## What changed in v2
 

@@ -1,10 +1,26 @@
 # Awesome Requirement Review Agent
 
+[![CI](https://github.com/Maropion03/awesome-requirement-review-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Maropion03/awesome-requirement-review-agent/actions/workflows/ci.yml)
+[![Vercel 在线体验](https://img.shields.io/badge/在线体验-Vercel-000000?logo=vercel)](https://awesome-requirement-review-agent.vercel.app)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI 0.140.7](https://img.shields.io/badge/FastAPI-0.140.7-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Vue 3](https://img.shields.io/badge/Vue-3-42B883?logo=vuedotjs&logoColor=white)](https://vuejs.org/)
+[![BYOK](https://img.shields.io/badge/AI-BYOK-ef6c00)](#api-key-如何处理)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
 一个开源 PRD 评审工作台。用户自带模型 API Key，上传 Markdown 或 DOCX 文档后，系统从六个维度并行评审，输出证据、评分和可执行修改建议。
 
 > 当前版本无状态运行：不再内置 MiniMax Key，没有账号系统，也不在服务端保存文档、报告或对话。
 
-[English](./README.md)
+**[打开在线工作台](https://awesome-requirement-review-agent.vercel.app)** · [English](./README.md)
+
+## 核心能力
+
+- 六维并行评审：需求完整性、需求合理性、用户价值、技术可行性、实现风险和优先级一致性。
+- 问题关联原文证据，提供严重程度、可执行修改建议、本地处理状态和 Markdown 导出。
+- 助手携带当前报告上下文，可解释结论、定位原文并生成可直接写回 PRD 的修改稿。
+- 独立 BYOK 设置页，支持六个主流模型供应商，并在当前浏览器持久化配置。
+- Vercel 无状态架构：没有内置模型 Key、账号系统、服务端 Session 或文档数据库。
 
 ## v2 主要变化
 
