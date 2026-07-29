@@ -24,10 +24,15 @@ test('toggleDimensionExpansion keeps each dimension independent', () => {
   assert.equal(isDimensionExpanded(expanded, '需求完整性'), false)
 })
 
-test('ReportViewer uses low fidelity sections for dimension cards', () => {
+test('ReportViewer preserves the original orange report hierarchy', () => {
   const source = readFileSync(resolve(process.cwd(), 'src/components/ReportViewer.vue'), 'utf8')
 
-  assert.match(source, /评分说明/)
-  assert.match(source, /主要问题/)
-  assert.match(source, /修改方向/)
+  assert.match(source, /class="report-overview"/)
+  assert.match(source, /class="score-ring"/)
+  assert.match(source, /Recommendation/)
+  assert.match(source, /RadarChart/)
+  assert.match(source, /class="dimension-grid"/)
+  assert.match(source, /issues-section/)
+  assert.match(source, /原文依据/)
+  assert.doesNotMatch(source, /--report-primary: #3a2e47/)
 })

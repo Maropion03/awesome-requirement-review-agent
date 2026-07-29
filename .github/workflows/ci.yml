@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "codex/**"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      smoke_url:
+        description: Optional deployed origin, for example https://example.vercel.app
+        required: false
+        type: string
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: uv sync --dev --locked
+      - run: uv run pytest -q tests
+      - run: uv run pytest -q skill-for-agent/tests --import-mode=importlib
+      - run: uvx --from pip-audit pip-audit --path .venv/lib/python3.12/site-packages -s osv
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --prefix frontend --include=dev
+      - run: npm test --prefix frontend
+      - run: npm run build --prefix frontend
+      - run: npm audit --prefix frontend --audit-level=high
+
+  production-smoke:
+    if: github.event_name == 'workflow_dispatch' && inputs.smoke_url != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify public application and API
+        env:
+          SMOKE_URL: ${{ inputs.smoke_url }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 3 "$SMOKE_URL/" | grep -q 'id="app"'
+          curl --fail --silent --show-error --retry 3 "$SMOKE_URL/api/health" | jq -e '.status == "ok" and .architecture == "stateless-byok"'
+          curl --fail --silent --show-error --retry 3 "$SMOKE_URL/api/providers" | jq -e '.providers | length == 6'
+          test "$(curl --fail --silent --show-error --retry 3 "$SMOKE_URL/api/providers" | jq '[.. | objects | has("base_url")] | any')" = "false"

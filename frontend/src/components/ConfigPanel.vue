@@ -1,131 +1,158 @@
 <template>
-  <section class="card config-card">
-    <div class="section-head">
+  <section class="connection-panel surface-card" aria-labelledby="connection-title">
+    <header class="panel-head">
       <div>
-        <h2>评审配置</h2>
-        <p class="desc">选择本次评审的审查强度。不同预设会影响提示词权重和问题倾向。</p>
+        <p class="overline">Bring your own key</p>
+        <h2 id="connection-title">连接你的模型</h2>
       </div>
-      <span class="mode-chip">{{ presetLabel }}</span>
+      <span class="protocol-badge">{{ activeProvider.protocol === 'anthropic' ? 'Anthropic Messages' : 'OpenAI-compatible' }}</span>
+    </header>
+
+    <div class="provider-strip" role="radiogroup" aria-label="API 供应商">
+      <button
+        v-for="provider in providers"
+        :key="provider.id"
+        type="button"
+        class="provider-option"
+        :class="{ active: modelValue.provider === provider.id }"
+        :aria-checked="modelValue.provider === provider.id"
+        role="radio"
+        @click="selectProvider(provider)"
+      >
+        <span>{{ provider.name }}</span>
+        <small>{{ provider.id === 'minimax' ? '原项目默认' : provider.protocol }}</small>
+      </button>
     </div>
 
-    <div class="row">
-      <label for="preset">预设模式</label>
-      <select id="preset" :value="modelValue" @change="emit('update:modelValue', $event.target.value)">
-        <option value="normal">标准评审</option>
-        <option value="p0_critical">高风险发布</option>
-        <option value="innovation">创新探索</option>
-      </select>
+    <div class="config-grid">
+      <label class="field key-field">
+        <span>API Key</span>
+        <div class="secret-input">
+          <input
+            :type="showKey ? 'text' : 'password'"
+            :value="modelValue.apiKey"
+            :placeholder="activeProvider.key_hint"
+            autocomplete="off"
+            spellcheck="false"
+            @input="updateField('apiKey', $event.target.value)"
+          />
+          <button type="button" @click="showKey = !showKey">{{ showKey ? '隐藏' : '显示' }}</button>
+        </div>
+      </label>
+
+      <label class="field">
+        <span>模型名</span>
+        <input
+          type="text"
+          :value="modelValue.model"
+          :placeholder="activeProvider.default_model"
+          autocomplete="off"
+          spellcheck="false"
+          @input="updateField('model', $event.target.value)"
+        />
+      </label>
+
+      <label class="field">
+        <span>评审预设</span>
+        <select :value="modelValue.preset" @change="updateField('preset', $event.target.value)">
+          <option value="normal">常规项目</option>
+          <option value="p0_critical">P0 紧急项目</option>
+          <option value="innovation">创新探索项目</option>
+        </select>
+      </label>
+
+      <div class="connection-test">
+        <span class="test-status" :class="testState">{{ testMessage }}</span>
+        <button type="button" class="test-button" :disabled="!canTest || testState === 'testing'" @click="testConnection">
+          {{ testState === 'testing' ? '验证中…' : '测试连接' }}
+        </button>
+      </div>
     </div>
+
+    <p class="trust-note">
+      <span aria-hidden="true">↳</span>
+      Key 会以明文写入当前浏览器的 localStorage，评审时经 Vercel 函数转发给所选模型。请勿在公共或共享设备上保存；评审会并行请求 6 个维度，请关注模型费用。
+    </p>
   </section>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { PROVIDER_FALLBACKS, validateProvider } from '../lib/reviewApi.js'
 
 const props = defineProps({
-  modelValue: {
-    type: String,
-    default: 'normal',
-  },
+  modelValue: { type: Object, required: true },
+  providers: { type: Array, default: () => PROVIDER_FALLBACKS },
 })
 
 const emit = defineEmits(['update:modelValue'])
+const showKey = ref(false)
+const testState = ref('idle')
+const testMessage = ref('尚未验证')
 
-const presetLabel = computed(() => {
-  const labels = {
-    normal: '标准评审',
-    p0_critical: '高风险发布',
-    innovation: '创新探索',
+const activeProvider = computed(() => (
+  props.providers.find((provider) => provider.id === props.modelValue.provider) || props.providers[0] || PROVIDER_FALLBACKS[0]
+))
+const canTest = computed(() => Boolean(props.modelValue.apiKey?.trim() && props.modelValue.model?.trim()))
+
+function updateField(field, value) {
+  testState.value = 'idle'
+  testMessage.value = '配置已修改，尚未验证'
+  emit('update:modelValue', { ...props.modelValue, [field]: value })
+}
+
+function selectProvider(provider) {
+  emit('update:modelValue', { ...props.modelValue, provider: provider.id, model: provider.default_model })
+  testState.value = 'idle'
+  testMessage.value = '供应商已切换，尚未验证'
+}
+
+async function testConnection() {
+  if (!canTest.value) return
+  testState.value = 'testing'
+  testMessage.value = '正在发送最小验证请求'
+  try {
+    const result = await validateProvider({
+      provider: props.modelValue.provider,
+      apiKey: props.modelValue.apiKey,
+      model: props.modelValue.model,
+    })
+    testState.value = 'success'
+    testMessage.value = result.message || '连接成功'
+  } catch (error) {
+    testState.value = 'error'
+    testMessage.value = error instanceof Error ? error.message : '连接失败'
   }
-
-  return labels[props.modelValue] || '标准评审'
-})
+}
 </script>
 
 <style scoped>
-.card {
-  background: #ffffff;
-  border: 1px solid transparent;
-  border-radius: 1rem;
-  padding: 16px;
-  box-shadow: 0 4px 6px rgba(31, 24, 23, 0.06);
-}
-
-.config-card {
-  display: grid;
-  gap: 14px;
-}
-
-.section-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: start;
-}
-
-h2,
-p {
-  margin: 0;
-}
-
-h2 {
-  font-family: 'Satoshi', sans-serif;
-  font-size: 1.125rem;
-  color: #1d1b17;
-}
-
-.desc,
-.row,
-label,
-select,
-.mode-chip {
-  font-family: 'Inter', sans-serif;
-}
-
-.desc {
-  margin-top: 4px;
-  color: #64748b;
-  font-size: 0.875rem;
-  line-height: 1.5;
-}
-
-.row {
-  display: grid;
-  gap: 8px;
-}
-
-label {
-  color: #334155;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-select {
-  padding: 10px 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.9rem;
-  background: #ffffff;
-  color: #1f2937;
-  font-size: 0.9375rem;
-}
-
-.mode-chip {
-  border-radius: 999px;
-  padding: 7px 12px;
-  background: #f3eef8;
-  color: #4b2f68;
-  font-size: 0.75rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-@media (max-width: 720px) {
-  .section-head {
-    flex-direction: column;
-  }
-
-  .mode-chip {
-    width: fit-content;
-  }
-}
+.connection-panel { overflow: hidden; }
+.panel-head { padding: 24px 26px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--line); }
+h2 { margin: 7px 0 0; font-size: 24px; }
+.protocol-badge { padding: 8px 12px; border-radius: 999px; background: var(--soft); color: var(--primary); font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.provider-strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border-bottom: 1px solid var(--line); }
+.provider-option { min-width: 0; padding: 15px 12px; display: grid; gap: 4px; border: 0; border-right: 1px solid var(--line); background: var(--soft); color: var(--ink); text-align: left; cursor: pointer; }
+.provider-option:last-child { border-right: 0; }
+.provider-option:hover { background: #fff7e9; }
+.provider-option.active { background: var(--primary); color: #fff; }
+.provider-option span { overflow: hidden; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.provider-option small { opacity: .7; font-size: 10px; }
+.config-grid { padding: 24px 26px; display: grid; grid-template-columns: minmax(250px, 1.35fr) minmax(190px, .9fr) minmax(170px, .65fr) auto; align-items: end; gap: 16px; }
+.field { min-width: 0; display: grid; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.field input, .field select { width: 100%; box-sizing: border-box; min-height: 44px; padding: 0 13px; border: 1px solid var(--line); border-radius: 13px; background: #fff; color: var(--ink); font: 13px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.field input:focus, .field select:focus { border-color: var(--primary); outline: 3px solid rgb(239 108 0 / 14%); }
+.secret-input { display: flex; }
+.secret-input input { border-radius: 13px 0 0 13px; }
+.secret-input button { padding: 0 14px; border: 1px solid var(--line); border-left: 0; border-radius: 0 13px 13px 0; background: var(--soft); color: var(--primary); cursor: pointer; font-weight: 700; }
+.connection-test { display: grid; gap: 8px; }
+.test-status { max-width: 160px; overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.test-status.success { color: var(--success); }
+.test-status.error { color: var(--danger); }
+.test-button { min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--primary); color: #fff; cursor: pointer; font-weight: 800; white-space: nowrap; }
+.test-button:disabled { cursor: not-allowed; opacity: .45; }
+.trust-note { margin: 0; padding: 16px 26px; display: flex; gap: 9px; border-top: 1px solid var(--line); background: #fff8ed; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.trust-note span { color: var(--primary); }
+@media (max-width: 1060px) { .provider-strip { grid-template-columns: repeat(3, 1fr); } .provider-option { border-bottom: 1px solid var(--line); } .config-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 650px) { .provider-strip, .config-grid { grid-template-columns: 1fr; } .provider-option { border-right: 0; } .panel-head { align-items: flex-start; flex-direction: column; } }
 </style>

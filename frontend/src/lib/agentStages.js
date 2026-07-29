@@ -9,7 +9,7 @@ const baseStages = [
   {
     id: 'reviewers',
     title: 'Reviewer Agents',
-    description: '按维度逐个分析 PRD 并产出问题。',
+    description: '六个维度并行分析 PRD 并产出问题。',
     status: 'pending',
     detail: '等待开始维度评审',
   },

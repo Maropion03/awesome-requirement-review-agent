@@ -1,41 +1,44 @@
 <template>
-  <div class="assistant-page">
-    <header class="assistant-page-header">
+  <main class="page-shell assistant-page">
+    <PageHeader
+      title="报告摘要与追问助手"
+      description="结合当前报告和选中的问题继续追问，不依赖服务端会话。"
+      :can-view-report="true"
+      :can-open-assistant="canChat"
+      @navigate="$emit('navigate', $event)"
+    />
+
+    <section class="assistant-title-card surface-card">
       <div>
-        <h2>报告摘要与评审助手</h2>
-        <p class="subtitle">保留当前会话，继续追问结论、原文和修改建议。</p>
+        <p class="overline">Assistant</p>
+        <h1>报告摘要与追问助手</h1>
+        <p>助手会带着当前报告与所选问题回答，每次请求均使用浏览器中保存的模型配置。</p>
       </div>
-    </header>
+      <div class="title-actions">
+        <button class="pill-button" type="button" @click="$emit('back-to-report')">返回报告</button>
+        <button class="pill-button" type="button" @click="$emit('export-suggestions')">导出 MD</button>
+        <button class="pill-button primary" type="button" @click="$emit('rerun')">重新评审</button>
+      </div>
+    </section>
 
-    <div class="assistant-content">
-      <section class="assistant-summary-grid">
-        <article class="assistant-summary-card primary">
-          <span class="label">综合评分</span>
-          <strong>{{ report.score }}/10</strong>
-          <p>{{ report.summary }}</p>
-        </article>
-        <article class="assistant-summary-card" :class="recommendationClass">
-          <span class="label">评审建议</span>
-          <strong>{{ report.suggestion }}</strong>
-          <p v-if="selectedIssue">当前聚焦：{{ selectedIssue.displayId || selectedIssue.id }} · {{ selectedIssue.title }}</p>
-          <p v-else>点击问题或直接提问，助手会带着当前报告上下文继续回答。</p>
-        </article>
-        <article class="assistant-summary-card">
-          <span class="label">会话状态</span>
-          <strong>{{ sessionId ? '已连接' : '未开始' }}</strong>
-          <p v-if="sessionId">Session：{{ sessionId.substring(0, 8) }}...</p>
-          <p v-else>上传并完成一次评审后，可以继续在这里对话。</p>
-        </article>
-        <article class="assistant-summary-card" :class="assistantStatusClass">
-          <span class="label">模型状态</span>
-          <strong>{{ assistantStatusLabel }}</strong>
-          <p>{{ responseModeLabel }}</p>
-        </article>
-      </section>
+    <div class="assistant-layout">
+      <div class="assistant-main">
+        <section class="assistant-stats" aria-label="助手上下文摘要">
+          <article class="surface-card"><p class="overline">综合评分</p><strong>{{ report.score }}<small>/100</small></strong></article>
+          <article class="surface-card"><p class="overline">评审建议</p><strong>{{ report.suggestion }}</strong></article>
+          <article class="surface-card"><p class="overline">会话状态</p><strong class="status-value"><i :class="{ ready: canChat }"></i>{{ canChat ? '模型可用' : '缺少 Key' }}</strong></article>
+        </section>
 
-      <section class="assistant-main-area">
+        <section class="selected-issue surface-card">
+          <div>
+            <p class="overline">Selected issue</p>
+            <h2>{{ selectedIssue?.title || '未选中问题' }}</h2>
+            <p>{{ selectedIssue ? `${selectedIssue.dimension} · ${selectedIssue.description}` : '从报告页选择问题后，这里会自动聚焦对应上下文。' }}</p>
+          </div>
+          <span>{{ selectedIssue?.displayId || selectedIssue?.id || 'N/A' }}</span>
+        </section>
+
         <AssistantPanel
-          class="assistant-panel-full"
           :chat-messages="chatMessages"
           :snapshot="assistantSnapshot"
           :suggested-actions="assistantSuggestedActions"
@@ -43,198 +46,90 @@
           :selected-issue="selectedIssue"
           :assistant-status="assistantStatus"
           :response-mode="assistantResponseMode"
-          :can-chat="Boolean(sessionId)"
+          :can-chat="canChat"
           :is-loading="isChatLoading"
-          @send-message="submitChatMessage"
-          @run-action="handleAssistantAction"
-          @select-issue="handleIssueSelectionById"
+          @send-message="$emit('send-message', $event)"
+          @run-action="$emit('run-action', $event)"
+          @select-issue="$emit('select-issue', $event)"
+          @open-report="$emit('back-to-report')"
         />
-      </section>
+      </div>
+
+      <aside class="context-rail">
+        <section class="surface-card rail-card">
+          <p class="overline">Run summary</p>
+          <dl>
+            <div><dt>当前模型</dt><dd>{{ providerLabel || '未配置' }}</dd></div>
+            <div><dt>已完成维度</dt><dd>{{ completedDimensions }}/6</dd></div>
+            <div><dt>当前进度</dt><dd>{{ assistantSnapshot.progress || 0 }}%</dd></div>
+          </dl>
+        </section>
+        <section class="surface-card rail-card">
+          <p class="overline">Report summary</p>
+          <p class="rail-copy">{{ report.summary || '暂无报告摘要。' }}</p>
+        </section>
+        <section class="surface-card rail-card">
+          <div class="rail-heading"><p class="overline">Issue shortcuts</p><span>{{ issues.length }}</span></div>
+          <div v-if="issues.length" class="shortcut-list">
+            <button v-for="issue in issues.slice(0, 6)" :key="issue.issueKey || issue.displayId || issue.id" type="button" :class="{ active: isSelected(issue) }" @click="$emit('select-issue', issue.issueKey || issue.displayId || issue.id)">
+              <span>{{ issue.displayId || issue.id }}</span><strong>{{ issue.title }}</strong>
+            </button>
+          </div>
+          <p v-else class="rail-copy">当前报告没有问题快捷入口。</p>
+        </section>
+      </aside>
     </div>
-  </div>
+  </main>
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import AssistantPanel from '../AssistantPanel.vue'
+import PageHeader from '../layout/PageHeader.vue'
+import { getIssueIdentifier } from '../../lib/issueState.js'
 
 const props = defineProps({
-  report: Object,
-  sessionId: String,
-  chatMessages: Array,
+  report: { type: Object, default: () => ({ score: '--', suggestion: '尚未生成', summary: '', issues: [] }) },
+  canChat: Boolean,
+  providerLabel: String,
+  chatMessages: { type: Array, default: () => [] },
   selectedIssue: Object,
-  assistantSuggestedActions: Array,
-  assistantSourceRefs: Array,
+  assistantSuggestedActions: { type: Array, default: () => [] },
+  assistantSourceRefs: { type: Array, default: () => [] },
   assistantStatus: String,
   assistantResponseMode: String,
   isChatLoading: Boolean,
-  assistantSnapshot: Object,
+  assistantSnapshot: { type: Object, default: () => ({ progress: 0 }) },
 })
-
-const emit = defineEmits([
-  'send-message',
-  'run-action',
-  'select-issue',
-  'update:chat-messages',
-])
-
-const recommendationClass = computed(() => {
-  const label = props.report.suggestion
-  if (label === 'APPROVE' || label === '通过') return 'approve'
-  if (label === 'MODIFY' || label === '修改后通过') return 'modify'
-  if (label === 'REJECT' || label === '驳回') return 'reject'
-  return 'pending'
-})
-
-const assistantStatusClass = computed(() => props.assistantStatus || 'unavailable')
-
-const assistantStatusLabel = computed(() => {
-  const labels = {
-    model: '模型回答',
-    unavailable: '模型未接入',
-    error: '模型异常',
-  }
-  return labels[props.assistantStatus] || props.assistantStatus || '未知'
-})
-
-const responseModeLabel = computed(() => {
-  const labels = {
-    model: '已使用个性化模型回复',
-    report_level: '当前使用报告级回复',
-    error: '模型失败后回退到报告级回复',
-  }
-  return labels[props.assistantResponseMode] || props.assistantResponseMode || '未识别'
-})
-
-const submitChatMessage = (message) => {
-  emit('send-message', message)
-}
-
-const handleAssistantAction = (action) => {
-  emit('run-action', action)
-}
-
-const handleIssueSelectionById = (issueId) => {
-  emit('select-issue', issueId)
-}
+defineEmits(['send-message', 'run-action', 'select-issue', 'back-to-report', 'export-suggestions', 'rerun', 'navigate'])
+const issues = computed(() => props.report.issues || [])
+const completedDimensions = computed(() => Math.round(((props.assistantSnapshot.progress || 0) / 100) * 6))
+function isSelected(issue) { return getIssueIdentifier(issue) === getIssueIdentifier(props.selectedIssue) }
 </script>
 
 <style scoped>
-.assistant-page {
-  padding: 88px 20px 20px 300px;
-  background: #fef8f1;
-  min-height: calc(100vh - 64px);
-  display: grid;
-  gap: 18px;
-}
-
-.assistant-page-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: end;
-  flex-wrap: wrap;
-}
-
-.assistant-content {
-  display: grid;
-  gap: 18px;
-}
-
-.assistant-summary-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-}
-
-.assistant-summary-card {
-  background: #ffffff;
-  border: 1px solid #dbe3ef;
-  border-radius: 1rem;
-  padding: 16px;
-  display: grid;
-  gap: 8px;
-}
-
-.assistant-summary-card .label {
-  color: #64748b;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.75rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-weight: 500;
-}
-
-.assistant-summary-card strong {
-  font-family: 'Satoshi', sans-serif;
-  font-weight: 700;
-  font-size: 24px;
-  color: #0f172a;
-}
-
-.assistant-summary-card p {
-  margin: 0;
-  color: #64748b;
-  font-family: 'Inter', sans-serif;
-  line-height: 1.5;
-  font-size: 0.875rem;
-}
-
-.assistant-summary-card.primary {
-  background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
-}
-
-.assistant-summary-card.approve {
-  background: #f0fdf4;
-  border-color: #16a34a;
-}
-
-.assistant-summary-card.modify {
-  background: #fffbeb;
-  border-color: #f59e0b;
-}
-
-.assistant-summary-card.reject {
-  background: #fef2f2;
-  border-color: #dc2626;
-}
-
-.assistant-summary-card.pending {
-  background: #eff6ff;
-  border-color: #2563eb;
-}
-
-.assistant-main-area {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: start;
-}
-
-.assistant-panel-full {
-  min-width: 0;
-  height: 100%;
-}
-
-h2 {
-  margin: 0;
-  font-family: 'Satoshi', sans-serif;
-  font-weight: 600;
-  font-size: 1.75rem;
-  color: #1d1b17;
-  letter-spacing: -0.02em;
-}
-
-.subtitle {
-  font-family: 'Inter', sans-serif;
-  color: #64748b;
-  font-size: 0.875rem;
-}
-
-@media (max-width: 1180px) {
-  .assistant-page {
-    padding-left: 20px;
-    padding-top: 88px;
-  }
-}
+.assistant-title-card { margin-bottom: 24px; padding: 24px 26px; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+h1 { margin: 8px 0 0; font-size: 30px; letter-spacing: -.03em; }
+.assistant-title-card > div > p:last-child { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.title-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.assistant-layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(290px, .7fr); gap: 24px; }
+.assistant-main, .context-rail { min-width: 0; display: grid; align-content: start; gap: 24px; }
+.assistant-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.assistant-stats article { padding: 20px; }
+.assistant-stats strong { display: block; margin-top: 12px; color: var(--primary); font-size: 25px; }
+.assistant-stats strong small { font-size: 12px; }
+.status-value { display: flex !important; align-items: center; gap: 9px; font-size: 18px !important; }
+.status-value i { width: 9px; height: 9px; border-radius: 50%; background: var(--danger); }.status-value i.ready { background: var(--success); }
+.selected-issue { padding: 24px; display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.selected-issue h2 { margin: 8px 0 0; font-size: 20px; }.selected-issue p:last-child { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.selected-issue > span, .rail-heading > span { padding: 7px 10px; border-radius: 999px; background: var(--soft); color: var(--primary); font-size: 11px; font-weight: 800; }
+.rail-card { padding: 24px; }
+dl { margin: 18px 0 0; display: grid; gap: 15px; } dl div { display: flex; justify-content: space-between; gap: 14px; } dt { color: var(--muted); font-size: 12px; } dd { margin: 0; max-width: 180px; overflow: hidden; font-size: 12px; font-weight: 800; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.rail-copy { margin: 15px 0 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
+.rail-heading { display: flex; align-items: center; justify-content: space-between; }
+.shortcut-list { margin-top: 15px; display: grid; gap: 8px; }
+.shortcut-list button { padding: 12px 13px; display: grid; gap: 4px; border: 0; border-radius: 15px; background: var(--soft); color: var(--ink); text-align: left; cursor: pointer; }
+.shortcut-list button.active { box-shadow: inset 0 0 0 2px var(--primary); }.shortcut-list span { color: var(--primary); font-size: 9px; font-weight: 800; letter-spacing: .12em; }.shortcut-list strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 1100px) { .assistant-layout { grid-template-columns: 1fr; } .context-rail { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 760px) { .assistant-title-card { flex-direction: column; } .assistant-stats, .context-rail { grid-template-columns: 1fr; } }
 </style>

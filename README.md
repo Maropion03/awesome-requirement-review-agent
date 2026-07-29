@@ -1,146 +1,121 @@
-# Awesome Requirement Review Agent 
+# Awesome Requirement Review Agent
 
-**English** | [中文](README_CN.md)
+[![CI](https://github.com/Maropion03/awesome-requirement-review-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Maropion03/awesome-requirement-review-agent/actions/workflows/ci.yml)
+[![Live on Vercel](https://img.shields.io/badge/live-Vercel-000000?logo=vercel)](https://awesome-requirement-review-agent.vercel.app)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI 0.140.7](https://img.shields.io/badge/FastAPI-0.140.7-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Vue 3](https://img.shields.io/badge/Vue-3-42B883?logo=vuedotjs&logoColor=white)](https://vuejs.org/)
+[![BYOK](https://img.shields.io/badge/AI-BYOK-ef6c00)](#api-key-handling)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-An AI-powered PRD (Product Requirements Document) review system built on multi-agent collaboration. Upload a PRD, and AI agents automatically review it across 6 dimensions with real-time streaming progress and structured reports.
+An open-source PRD review workbench for product teams. Bring your own model API key, upload a Markdown or DOCX PRD, and receive a six-dimension review with evidence, scores, and actionable revisions.
 
-## Live Demo
+> The app is stateless. It has no built-in MiniMax key, no account system, and no server-side document or report storage.
 
-👉 **[Try it now](https://awesome-requirement-review-agent-production.up.railway.app/single-page-shell.html)** — No setup required, just upload your PRD.
+**[Open the live workbench](https://awesome-requirement-review-agent.vercel.app)** · [中文说明](./README_CN.md)
 
-## Features
+## Highlights
 
-- **6-Dimension Review** — Completeness, Reasonableness, User Value, Feasibility, Risk, Priority Consistency
-- **Multi-Agent Collaboration** — Dev / Design / Test agents review in parallel, coordinated by an Orchestrator
-- **3 Review Presets** — Standard / P0 Critical / Innovation, with auto-adjusted scoring weights
-- **Real-time Streaming** — SSE-based live progress updates as each dimension is reviewed
-- **AI Chat** — Post-review interactive Q&A to dive deeper into specific issues
-- **Report Export** — PDF and Markdown export
-- **Document Parsing** — Supports .docx and .md uploads
-- **Rate Limiting** — IP-based throttling via slowapi to prevent abuse
+- Six concurrent review dimensions: completeness, rationality, user value, technical feasibility, implementation risk, and priority alignment.
+- Evidence-linked issues with severity, actionable revisions, local handling status, and Markdown export.
+- Report-aware follow-up assistant that can explain conclusions, locate source text, and draft PRD-ready changes.
+- Dedicated browser-persisted BYOK settings for six mainstream model providers.
+- Stateless Vercel architecture: no built-in model key, account system, server session, or document database.
 
-## Architecture
+## What changed in v2
 
-```
-┌─────────────────────────────────────────────────┐
-│              Frontend (Single Page HTML)          │
-│              Tailwind CSS + Chart.js             │
-├─────────────────────────────────────────────────┤
-│              FastAPI Backend                      │
-│  ├── API Routes (upload/review/chat/export)      │
-│  ├── SSE Service (real-time streaming)           │
-│  ├── Review Service (review workflow)            │
-│  └── Chat Service (post-review Q&A)             │
-├─────────────────────────────────────────────────┤
-│              Multi-Agent Layer (CrewAI)           │
-│  ├── Orchestrator                                │
-│  ├── Dimension Reviewers × 6                     │
-│  └── Reporter                                    │
-├─────────────────────────────────────────────────┤
-│              MiniMax LLM API                     │
-└─────────────────────────────────────────────────┘
-```
+- Migrated from the retired Railway deployment to Vercel.
+- Replaced the embedded/server-owned MiniMax setup with BYOK.
+- Supports MiniMax, OpenAI, Anthropic, DeepSeek, Gemini, and OpenRouter.
+- Adds a dedicated API settings page and persists provider, model, preset, and key in this browser.
+- Uses fixed official provider hosts; users can choose a model but cannot supply an arbitrary base URL.
+- Replaced process-local uploads, background jobs, sessions, SSE reconnects, and shares with one streaming request.
+- Runs all six reviewers concurrently and produces a deterministic aggregate report.
+- Validates model JSON, retries one repair, and visibly degrades a failed dimension instead of hanging.
+- Removed CrewAI/LangChain and the duplicate static frontend.
 
-## Quick Start
+## API key handling
 
-### Local Development
+The provider, model, preset, and key are stored as plaintext in this browser's `localStorage` so the configuration survives refreshes and browser restarts. Each validation, review, or chat request sends the key through the Vercel Function to the selected provider. The app does not write keys to cookies, a server-side database, files, analytics, or logs. Use **Clear local configuration** on shared devices or clear the site's browser data.
+
+Browser storage is a convenience/security tradeoff: scripts running on this origin can read the stored key. The key also transits the serverless function, so the Vercel deployment operator must still be trusted. Self-host if the PRD or key cannot pass through a third-party deployment.
+
+## Supported providers
+
+| Provider | Protocol | Default model |
+| --- | --- | --- |
+| MiniMax | OpenAI-compatible | `MiniMax-M2.7` |
+| OpenAI | OpenAI Chat Completions | `gpt-5.2` |
+| Anthropic | Messages API | `claude-sonnet-5` |
+| DeepSeek | OpenAI-compatible | `deepseek-v4-flash` |
+| Google Gemini | OpenAI-compatible | `gemini-3.6-flash` |
+| OpenRouter | OpenAI-compatible | `~openai/gpt-latest` |
+
+Model catalogs change. The model field is editable so users can choose another model available to their account.
+
+## Local development
+
+Requirements: Python 3.12+, Node.js 22+, and `uv` (recommended).
 
 ```bash
-git clone git@github.com:Maropion03/awesome-requirement-review-agent.git
-cd awesome-requirement-review-agent/backend
-cp .env.example .env   # then fill in your MiniMax API credentials
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+uv sync --dev
+uv run uvicorn backend.app:app --reload --port 8005
 ```
 
-### Docker
+In another terminal:
 
 ```bash
-docker build -t prd-reviewer .
-docker run -p 8000:8000 \
-  -e MINIMAX_API_KEY=your_key \
-  -e MINIMAX_API_BASE=https://api.minimax.chat/v1 \
-  -e MINIMAX_CHAT_MODEL=MiniMax-M2.7 \
-  prd-reviewer
+cd frontend
+npm ci --include=dev
+npm run dev
 ```
 
-## Project Structure
+Open `http://localhost:5173`. No `.env` or server API key is required.
 
-```
-├── Dockerfile              # Multi-stage build (frontend compile + backend runtime)
-├── backend/
-│   ├── main.py             # FastAPI entry + SPA static file serving
-│   ├── api/
-│   │   ├── routes.py       # API routes (upload/review/chat/share)
-│   │   └── schemas.py      # Pydantic data models
-│   ├── agents/
-│   │   ├── orchestrator.py # Review orchestrator
-│   │   ├── reviewers.py    # 6-dimension review agents
-│   │   └── reporter.py     # Report generation agent
-│   ├── services/
-│   │   ├── review_service.py  # Review workflow
-│   │   ├── sse_service.py     # SSE streaming
-│   │   └── chat_service.py    # Post-review chat
-│   ├── tools/
-│   │   ├── parser.py       # PRD document parser (.md / .docx)
-│   │   └── validator.py    # Input validation
-│   ├── config/
-│   │   └── prompts.py      # Prompt templates + preset weight configs
-│   └── utils/              # MiniMax client + report utilities
-├── frontend/
-│   └── public/
-│       └── single-page-shell.html  # Single-page frontend (Tailwind + Chart.js)
-└── tests/                  # Unit tests
+## Test and build
+
+```bash
+uv sync --dev
+uv run pytest -q tests
+cd frontend && npm test && npm run build && npm audit
+uv run pytest -q skill-for-agent/tests --import-mode=importlib
+vercel build
 ```
 
-## API
+## Deploy to Vercel
 
-| Method | Path | Description | Rate Limit |
-|--------|------|-------------|-----------|
-| POST | `/api/review/upload` | Upload PRD document | 10/min |
-| POST | `/api/review/start` | Start review | 5/min |
-| GET | `/api/review/stream/{session_id}` | SSE review progress | — |
-| GET | `/api/review/status/{session_id}` | Query review status | — |
-| GET | `/api/review/report/{session_id}` | Get review report | — |
-| POST | `/api/review/chat` | Post-review chat | 20/min |
-| GET | `/api/review/export/pdf/{session_id}` | Export PDF report | — |
-| POST | `/api/review/config` | Configure review agents | — |
-| GET | `/health` | Health check | — |
+```bash
+vercel
+vercel --prod
+```
 
-## Review Dimensions & Weights
+The repository includes [`vercel.json`](./vercel.json). Production needs no secret environment variables. Vercel builds the Vue app into `frontend/dist` and deploys `api/index.py` as the FastAPI function.
 
-### Standard Project
+## Runtime API
 
-| Dimension | Weight | Focus |
-|-----------|--------|-------|
-| Completeness | 20% | Feature descriptions, acceptance criteria, edge cases |
-| Reasonableness | 20% | Logical consistency, scenario coverage |
-| User Value | 20% | Pain point resolution, ROI |
-| Feasibility | 20% | Architecture soundness, dependency availability |
-| Risk | 10% | Technical risk, timeline risk |
-| Priority Consistency | 10% | Priority-resource alignment |
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| GET | `/api/health` | Stateless runtime health |
+| GET | `/api/providers` | Public provider/model presets; never returns keys or base URLs |
+| POST | `/api/providers/validate` | Minimal model connection test |
+| POST | `/api/review/run` | Multipart document + BYOK config; returns NDJSON progress and report |
+| POST | `/api/review/chat` | Stateless report follow-up |
 
-### P0 Critical Project
+Uploads are capped at 3.5MB because Vercel Function request bodies have a 4.5MB platform limit. Extracted text is capped at 80,000 characters to prevent accidental oversized contexts and cost. A complete review makes six concurrent model calls; validation, JSON repair, and chat can add calls.
 
-Completeness 35% + Feasibility 35% + Risk 20% + Others 10%
+## Repository layout
 
-### Innovation Project
-
-User Value 40% + Completeness 30% + Others 30%
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Frontend | HTML + Tailwind CSS + Chart.js |
-| Backend | FastAPI + SSE (sse-starlette) |
-| AI Framework | CrewAI (Multi-Agent) |
-| LLM | MiniMax-M2.7 |
-| Doc Parsing | python-docx + Markdown |
-| Report Export | ReportLab (PDF) |
-| Rate Limiting | slowapi |
-| Deployment | Docker + Railway |
+```text
+api/index.py                 Vercel Python entrypoint
+backend/app.py               FastAPI routes
+backend/core/                provider adapters, parser, schemas, review pipeline
+frontend/src/                maintained Vue application
+tests/                       backend behavior/security tests
+frontend/tests/              frontend contract tests
+skill-for-agent/             separate deterministic local review skill
+documentation/               architecture, flows, permissions, variables, tests
+```
 
 ## License
 
-MIT
+[MIT](./LICENSE)
