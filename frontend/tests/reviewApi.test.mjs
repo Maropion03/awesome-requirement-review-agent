@@ -5,29 +5,31 @@ import {
   createApiUrl,
   mapReportToViewModel,
   startReviewStream,
-  validateProvider,
+  validateFormat,
 } from '../src/lib/reviewApi.js'
 
 test('createApiUrl joins base url and path without duplicate slashes', () => {
   assert.equal(createApiUrl('https://example.test/api/', '/review/run'), 'https://example.test/api/review/run')
 })
-test('validateProvider posts the user-owned credentials', async () => {
+test('validateFormat posts the user-owned endpoint and credentials', async () => {
   const calls = []
   const fetchImpl = async (url, options) => {
     calls.push({ url, options })
     return { ok: true, json: async () => ({ status: 'ok', message: '连接成功' }) }
   }
-  const result = await validateProvider({
-    baseUrl: '/api',
-    provider: 'anthropic',
+  const result = await validateFormat({
+    apiBaseUrl: '/api',
+    apiFormat: 'anthropic_messages',
+    endpointBaseUrl: 'https://api.example.com',
     apiKey: 'secret-key',
     model: 'claude-sonnet-5',
     fetchImpl,
   })
   assert.equal(result.status, 'ok')
-  assert.equal(calls[0].url, '/api/providers/validate')
+  assert.equal(calls[0].url, '/api/formats/validate')
   assert.deepEqual(JSON.parse(calls[0].options.body), {
-    provider: 'anthropic',
+    api_format: 'anthropic_messages',
+    base_url: 'https://api.example.com',
     api_key: 'secret-key',
     model: 'claude-sonnet-5',
   })
@@ -36,7 +38,7 @@ test('validateProvider posts the user-owned credentials', async () => {
 test('startReviewStream consumes one NDJSON response without a server session', async () => {
   const encoder = new TextEncoder()
   const events = [
-    { event: 'connected', provider: 'minimax' },
+    { event: 'connected', api_format: 'openai_chat' },
     { event: 'dimension_start', dimension: '需求完整性' },
     { event: 'dimension_complete', dimension: '需求完整性', score: 8, status: 'completed' },
     { event: 'complete', report: { total_score: 80, recommendation: '通过', issues: [] } },
@@ -55,9 +57,10 @@ test('startReviewStream consumes one NDJSON response without a server session', 
   }
 
   await startReviewStream({
-    baseUrl: '/api',
+    apiBaseUrl: '/api',
     file: new File(['# Demo\nA complete PRD body'], 'demo.md'),
-    provider: 'minimax',
+    apiFormat: 'openai_chat',
+    endpointBaseUrl: 'https://api.example.com/v1',
     apiKey: 'user-key',
     model: 'MiniMax-M2.7',
     preset: 'normal',
@@ -71,6 +74,8 @@ test('startReviewStream consumes one NDJSON response without a server session', 
   assert.equal(calls[0].url, '/api/review/run')
   assert.ok(calls[0].options.body instanceof FormData)
   assert.equal(calls[0].options.body.get('api_key'), 'user-key')
+  assert.equal(calls[0].options.body.get('api_format'), 'openai_chat')
+  assert.equal(calls[0].options.body.get('base_url'), 'https://api.example.com/v1')
   assert.deepEqual(received, ['connected', '需求完整性', 80])
 })
 

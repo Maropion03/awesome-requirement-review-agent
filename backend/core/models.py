@@ -2,26 +2,63 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 from typing import Any, Literal
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
+
+
+APIFormat = Literal["openai_chat", "openai_responses", "anthropic_messages"]
 
 
 class ProviderCredentials(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    provider: str = Field(min_length=1, max_length=32)
+    api_format: APIFormat
+    base_url: str = Field(min_length=1, max_length=2048)
     api_key: SecretStr
     model: str = Field(min_length=1, max_length=160)
 
-    @field_validator("provider", "model")
+    @field_validator("model")
     @classmethod
     def validate_text_fields(cls, value: str) -> str:
         value = value.strip()
         if not value or any(ord(character) < 32 for character in value):
             raise ValueError("包含无效字符")
         return value
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_base_url(cls, value: str) -> str:
+        value = value.strip()
+        if any(ord(character) < 32 for character in value):
+            raise ValueError("Base URL 包含无效字符")
+        try:
+            parsed = urlsplit(value)
+            port = parsed.port
+        except ValueError as error:
+            raise ValueError("Base URL 格式无效") from error
+        if parsed.scheme.lower() != "https" or not parsed.hostname:
+            raise ValueError("Base URL 必须使用公网 HTTPS")
+        if parsed.username or parsed.password or parsed.query or parsed.fragment:
+            raise ValueError("Base URL 不能包含凭据、查询参数或片段")
+        if port not in {None, 443}:
+            raise ValueError("Base URL 仅允许 HTTPS 443 端口")
+
+        hostname = parsed.hostname.encode("idna").decode("ascii").lower()
+        if hostname == "localhost" or hostname.endswith(".localhost"):
+            raise ValueError("Base URL 不能指向本机或内网")
+        try:
+            address = ipaddress.ip_address(hostname)
+        except ValueError:
+            address = None
+        if address is not None and not address.is_global:
+            raise ValueError("Base URL 不能指向本机或内网")
+
+        host = f"[{hostname}]" if ":" in hostname else hostname
+        return urlunsplit(("https", host, parsed.path.rstrip("/"), "", ""))
 
     @field_validator("api_key")
     @classmethod

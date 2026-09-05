@@ -10,6 +10,7 @@ function readSourceFile(relativePath) {
 test('primary workspace exposes document, persisted BYOK settings, progress, and report', () => {
   const uploadArea = readSourceFile('src/components/UploadArea.vue')
   const configPanel = readSourceFile('src/components/ConfigPanel.vue')
+  const reviewApi = readSourceFile('src/lib/reviewApi.js')
   const reviewProgress = readSourceFile('src/components/ReviewProgress.vue')
   const reportViewer = readSourceFile('src/components/ReportViewer.vue')
 
@@ -18,7 +19,11 @@ test('primary workspace exposes document, persisted BYOK settings, progress, and
   assert.match(uploadArea, /扫描件请先完成 OCR/)
   assert.match(uploadArea, /3\.5MB/)
 
-  assert.match(configPanel, />连接你的模型</)
+  assert.match(configPanel, />连接你的模型接口</)
+  assert.match(reviewApi, /OpenAI Chat Completions/)
+  assert.match(reviewApi, /OpenAI Responses/)
+  assert.match(reviewApi, /Anthropic Messages/)
+  assert.match(configPanel, /Base URL/)
   assert.match(configPanel, /API Key/)
   assert.match(configPanel, /localStorage/)
 

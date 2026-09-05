@@ -219,7 +219,7 @@ async def stream_review(
         return
 
     llm = client or LLMClient(credentials)
-    yield _event("connected", provider=credentials.provider, model=credentials.model)
+    yield _event("connected", api_format=credentials.api_format, model=credentials.model)
     yield _event("streaming", content="Orchestrator Agent 已将六个维度并行分配。")
 
     async def run_one(dimension_key: str) -> tuple[str, DimensionReview | None, str | None]:

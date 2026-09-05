@@ -22,13 +22,14 @@ class ApiTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    def test_provider_catalog_contains_no_secret_or_editable_base_url(self):
-        response = self.client.get("/api/providers")
+    def test_format_catalog_contains_three_transport_contracts(self):
+        response = self.client.get("/api/formats")
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["max_upload_bytes"], 3_500_000)
         self.assertEqual(payload["max_document_chars"], 80_000)
-        self.assertNotIn("base_url", payload["providers"][0])
+        self.assertEqual(len(payload["formats"]), 3)
+        self.assertIn("default_base_url", payload["formats"][0])
         self.assertNotIn("api_key", json.dumps(payload))
 
     def test_review_stream_is_single_request_and_returns_terminal_event(self):
@@ -36,7 +37,7 @@ class ApiTests(unittest.TestCase):
             response = self.client.post(
                 "/api/review/run",
                 files={"file": ("demo.md", b"# Demo PRD\nA sufficiently detailed product requirement document.", "text/markdown")},
-                data={"provider": "minimax", "api_key": "private-key", "model": "MiniMax-M2.7", "preset": "normal"},
+                data={"api_format": "openai_chat", "base_url": "https://api.example.com/v1", "api_key": "private-key", "model": "model", "preset": "normal"},
             )
         self.assertEqual(response.status_code, 200)
         events = [json.loads(line) for line in response.text.splitlines()]
@@ -48,21 +49,21 @@ class ApiTests(unittest.TestCase):
         response = self.client.post(
             "/api/review/run",
             files={"file": ("demo.txt", b"not a prd", "text/plain")},
-            data={"provider": "minimax", "api_key": "", "model": "MiniMax-M2.7", "preset": "normal"},
+            data={"api_format": "openai_chat", "base_url": "https://api.example.com/v1", "api_key": "", "model": "model", "preset": "normal"},
         )
         self.assertEqual(response.status_code, 422)
 
-    def test_unknown_provider_and_preset_are_client_errors(self):
-        provider_response = self.client.post(
-            "/api/providers/validate",
-            json={"provider": "custom", "api_key": "key", "model": "model"},
+    def test_unknown_format_and_preset_are_client_errors(self):
+        format_response = self.client.post(
+            "/api/formats/validate",
+            json={"api_format": "custom", "base_url": "https://api.example.com/v1", "api_key": "key", "model": "model"},
         )
-        self.assertEqual(provider_response.status_code, 400)
+        self.assertEqual(format_response.status_code, 422)
 
         preset_response = self.client.post(
             "/api/review/run",
             files={"file": ("demo.md", b"# Demo PRD\nA sufficiently detailed product requirement document.", "text/markdown")},
-            data={"provider": "minimax", "api_key": "key", "model": "MiniMax-M2.7", "preset": "unknown"},
+            data={"api_format": "openai_chat", "base_url": "https://api.example.com/v1", "api_key": "key", "model": "model", "preset": "unknown"},
         )
         self.assertEqual(preset_response.status_code, 422)
 

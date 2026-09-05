@@ -5,7 +5,7 @@
       :run-status="runState.status"
       :preset="apiConfig.preset"
       :progress="runState.progress"
-      :provider-name="providerLabel"
+      :format-name="formatLabel"
       @navigate="goToRoute"
       @new-project="resetReviewRun"
     />
@@ -17,7 +17,7 @@
       :upload-error="uploadError"
       :is-running="isRunning"
       :api-config="apiConfig"
-      :providers="providers"
+      :formats="formats"
       :stream-text="streamText"
       :agent-stages="agentStages"
       :dimensions="dimensions"
@@ -50,7 +50,7 @@
       v-else-if="currentRoute === HASH_ROUTES.assistant"
       :report="report"
       :can-chat="canOpenAssistant"
-      :provider-label="providerLabel"
+      :format-label="formatLabel"
       :chat-messages="chatMessages"
       :selected-issue="selectedIssue"
       :assistant-suggested-actions="assistantSuggestedActions"
@@ -71,7 +71,7 @@
     <SettingsPage
       v-else
       :api-config="apiConfig"
-      :providers="providers"
+      :formats="formats"
       :can-view-report="canViewReport"
       :can-open-assistant="canOpenAssistant"
       @update:api-config="updateApiConfig"
@@ -97,10 +97,10 @@ import { buildExportPayload } from './lib/exportSuggestions.js'
 import { HASH_ROUTES, formatHashRoute, resolveHashRoute } from './lib/hashRoute.js'
 import { buildIssueExportItems, getIssueIdentifier, mergeIssueStatuses, updateIssueStatus } from './lib/issueState.js'
 import {
-  PROVIDER_FALLBACKS,
+  API_FORMAT_FALLBACKS,
   createBaseDimensions,
   createEmptyReportViewModel,
-  loadProviderCatalog,
+  loadFormatCatalog,
   mapReportToViewModel,
   startReviewStream,
 } from './lib/reviewApi.js'
@@ -116,11 +116,12 @@ function getWindowHash() {
 }
 
 const currentRoute = ref(resolveHashRoute({ hash: getWindowHash(), fallback: HASH_ROUTES.workbench }))
-const providers = ref(PROVIDER_FALLBACKS)
+const formats = ref(API_FORMAT_FALLBACKS)
 const defaultApiConfig = {
-  provider: PROVIDER_FALLBACKS[0].id,
+  apiFormat: API_FORMAT_FALLBACKS[0].id,
+  baseUrl: API_FORMAT_FALLBACKS[0].default_base_url,
   apiKey: '',
-  model: PROVIDER_FALLBACKS[0].default_model,
+  model: API_FORMAT_FALLBACKS[0].default_model,
   preset: 'normal',
 }
 const browserStorage = typeof window !== 'undefined' ? window.localStorage : null
@@ -146,10 +147,12 @@ const isChatLoading = ref(false)
 let reviewController = null
 
 const canViewReport = computed(() => Boolean(report.value.rawReport))
-const canOpenAssistant = computed(() => Boolean(report.value.rawReport && apiConfig.value.apiKey.trim()))
-const providerLabel = computed(() => {
-  const provider = providers.value.find((item) => item.id === apiConfig.value.provider)
-  return `${provider?.name || apiConfig.value.provider} · ${apiConfig.value.model}`
+const canOpenAssistant = computed(() => Boolean(
+  report.value.rawReport && apiConfig.value.apiKey.trim() && apiConfig.value.model.trim() && apiConfig.value.baseUrl.trim(),
+))
+const formatLabel = computed(() => {
+  const format = formats.value.find((item) => item.id === apiConfig.value.apiFormat)
+  return `${format?.name || apiConfig.value.apiFormat} · ${apiConfig.value.model}`
 })
 const selectedIssueId = computed(() => getIssueIdentifier(selectedIssue.value) || '')
 const assistantSnapshot = computed(() => buildAssistantSnapshot({ report: report.value, runState: runState.value, selectedIssue: selectedIssue.value }))
@@ -260,8 +263,8 @@ async function startReviewFlow() {
     uploadError.value = fileError
     return
   }
-  if (!apiConfig.value.apiKey.trim() || !apiConfig.value.model.trim()) {
-    uploadError.value = '请先填写 API Key 和模型名'
+  if (!apiConfig.value.apiKey.trim() || !apiConfig.value.model.trim() || !apiConfig.value.baseUrl.trim()) {
+    uploadError.value = '请先填写接口格式、Base URL、API Key 和模型名'
     return
   }
 
@@ -282,12 +285,13 @@ async function startReviewFlow() {
   try {
     await startReviewStream({
       file: selectedFile.value,
-      provider: apiConfig.value.provider,
+      apiFormat: apiConfig.value.apiFormat,
+      endpointBaseUrl: apiConfig.value.baseUrl,
       apiKey: apiConfig.value.apiKey,
       model: apiConfig.value.model,
       preset: apiConfig.value.preset,
       signal: reviewController.signal,
-      onConnected: () => appendStreamLine(`已连接 ${providerLabel.value}`),
+      onConnected: () => appendStreamLine(`已连接 ${formatLabel.value}`),
       onDimensionStart: (payload) => {
         markDimensionStatus(payload.dimension, 'active')
         agentStages.value = applyDimensionEvent(agentStages.value, 'start', payload.dimension)
@@ -364,7 +368,8 @@ async function submitChatMessage(message) {
   isChatLoading.value = true
   try {
     const normalized = normalizeChatResponse(await sendChatMessage({
-      provider: apiConfig.value.provider,
+      apiFormat: apiConfig.value.apiFormat,
+      endpointBaseUrl: apiConfig.value.baseUrl,
       apiKey: apiConfig.value.apiKey,
       model: apiConfig.value.model,
       report: report.value.rawReport,
@@ -415,8 +420,8 @@ onMounted(async () => {
     window.addEventListener('hashchange', syncRouteFromHash)
   }
   try {
-    const catalog = await loadProviderCatalog()
-    if (Array.isArray(catalog.providers) && catalog.providers.length) providers.value = catalog.providers
+    const catalog = await loadFormatCatalog()
+    if (Array.isArray(catalog.formats) && catalog.formats.length) formats.value = catalog.formats
   } catch {
     // Built-in catalog keeps the UI usable when the API is starting up.
   }

@@ -19,16 +19,16 @@ An open-source PRD review workbench for product teams. Bring your own model API 
 - Six concurrent review dimensions: completeness, rationality, user value, technical feasibility, implementation risk, and priority alignment.
 - Evidence-linked issues with severity, actionable revisions, local handling status, and Markdown export.
 - Report-aware follow-up assistant that can explain conclusions, locate source text, and draft PRD-ready changes.
-- Dedicated browser-persisted BYOK settings for six mainstream model providers.
+- Browser-persisted BYOK settings for three API formats and any compatible public HTTPS endpoint.
 - Stateless Vercel architecture: no built-in model key, account system, server session, or document database.
 
 ## What changed in v2
 
 - Migrated from the retired Railway deployment to Vercel.
 - Replaced the embedded/server-owned MiniMax setup with BYOK.
-- Supports MiniMax, OpenAI, Anthropic, DeepSeek, Gemini, and OpenRouter.
-- Adds a dedicated API settings page and persists provider, model, preset, and key in this browser.
-- Uses fixed official provider hosts; users can choose a model but cannot supply an arbitrary base URL.
+- Supports OpenAI Chat Completions, OpenAI Responses, and Anthropic Messages request formats.
+- Persists API format, Base URL, model, preset, and key in this browser.
+- Accepts user-owned public HTTPS endpoints with server-side SSRF checks and redirect blocking.
 - Replaced process-local uploads, background jobs, sessions, SSE reconnects, and shares with one streaming request.
 - Runs all six reviewers concurrently and produces a deterministic aggregate report.
 - Validates model JSON, retries one repair, and visibly degrades a failed dimension instead of hanging.
@@ -36,20 +36,17 @@ An open-source PRD review workbench for product teams. Bring your own model API 
 
 ## API key handling
 
-The provider, model, preset, and key are stored as plaintext in this browser's `localStorage` so the configuration survives refreshes and browser restarts. Each validation, review, or chat request sends the key through the Vercel Function to the selected provider. The app does not write keys to cookies, a server-side database, files, analytics, or logs. Use **Clear local configuration** on shared devices or clear the site's browser data.
+The API format, Base URL, model, preset, and key are stored as plaintext in this browser's `localStorage` so the configuration survives refreshes and browser restarts. Each validation, review, or chat request sends the key through the Vercel Function to the configured endpoint. The app does not write keys to cookies, a server-side database, files, analytics, or logs. Use **Clear local configuration** on shared devices or clear the site's browser data.
 
 Browser storage is a convenience/security tradeoff: scripts running on this origin can read the stored key. The key also transits the serverless function, so the Vercel deployment operator must still be trusted. Self-host if the PRD or key cannot pass through a third-party deployment.
 
-## Supported providers
+## Supported API formats
 
-| Provider | Protocol | Default model |
+| Format | Endpoint appended to Base URL | Default Base URL |
 | --- | --- | --- |
-| MiniMax | OpenAI-compatible | `MiniMax-M2.7` |
-| OpenAI | OpenAI Chat Completions | `gpt-5.2` |
-| Anthropic | Messages API | `claude-sonnet-5` |
-| DeepSeek | OpenAI-compatible | `deepseek-v4-flash` |
-| Google Gemini | OpenAI-compatible | `gemini-3.6-flash` |
-| OpenRouter | OpenAI-compatible | `~openai/gpt-latest` |
+| OpenAI Chat Completions | `/chat/completions` | `https://api.openai.com/v1` |
+| OpenAI Responses | `/responses` | `https://api.openai.com/v1` |
+| Anthropic Messages | `/v1/messages` | `https://api.anthropic.com` |
 
 Model catalogs change. The model field is editable so users can choose another model available to their account.
 
@@ -96,8 +93,8 @@ The repository includes [`vercel.json`](./vercel.json). Production needs no secr
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | GET | `/api/health` | Stateless runtime health |
-| GET | `/api/providers` | Public provider/model presets; never returns keys or base URLs |
-| POST | `/api/providers/validate` | Minimal model connection test |
+| GET | `/api/formats` | Public API format contracts and defaults |
+| POST | `/api/formats/validate` | Minimal endpoint/model connection test |
 | POST | `/api/review/run` | Multipart document + BYOK config; returns NDJSON progress and report |
 | POST | `/api/review/chat` | Stateless report follow-up |
 
@@ -108,7 +105,7 @@ Uploads are capped at 3.5MB because Vercel Function request bodies have a 4.5MB 
 ```text
 api/index.py                 Vercel Python entrypoint
 backend/app.py               FastAPI routes
-backend/core/                provider adapters, parser, schemas, review pipeline
+backend/core/                API-format adapters, parser, schemas, review pipeline
 frontend/src/                maintained Vue application
 tests/                       backend behavior/security tests
 frontend/tests/              frontend contract tests

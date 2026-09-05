@@ -11,8 +11,9 @@ test('sendChatMessage posts credentials and report instead of a process-local se
   }
   const report = { total_score: 72, issues: [] }
   const result = await sendChatMessage({
-    baseUrl: '/api',
-    provider: 'openai',
+    apiBaseUrl: '/api',
+    apiFormat: 'openai_responses',
+    endpointBaseUrl: 'https://api.example.com/v1',
     apiKey: 'user-key',
     model: 'gpt-5.2',
     report,
@@ -23,7 +24,8 @@ test('sendChatMessage posts credentials and report instead of a process-local se
   assert.equal(result.message, '好的，我来解释')
   assert.equal(calls[0].url, '/api/review/chat')
   assert.deepEqual(JSON.parse(calls[0].options.body), {
-    provider: 'openai',
+    api_format: 'openai_responses',
+    base_url: 'https://api.example.com/v1',
     api_key: 'user-key',
     model: 'gpt-5.2',
     report,
@@ -38,7 +40,7 @@ test('sendChatMessage surfaces structured API errors and does not bypass the Vit
     return { ok: false, status: 400, json: async () => ({ detail: 'API Key 无效' }) }
   }
   await assert.rejects(() => sendChatMessage({
-    baseUrl: '/api', provider: 'openai', apiKey: 'bad', model: 'gpt-5.2', report: {}, message: 'hi', fetchImpl,
+    apiBaseUrl: '/api', apiFormat: 'openai_chat', endpointBaseUrl: 'https://api.example.com/v1', apiKey: 'bad', model: 'gpt-5.2', report: {}, message: 'hi', fetchImpl,
   }), /API Key 无效/)
   assert.deepEqual(calls, ['/api/review/chat'])
 })

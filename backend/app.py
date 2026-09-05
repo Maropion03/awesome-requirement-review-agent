@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from .core.models import ChatRequest, ProviderCredentials, ProviderValidationRequest
 from .core.parser import DocumentError, MAX_DOCUMENT_CHARS, MAX_UPLOAD_BYTES, parse_document
 from .core.pipeline import PRESET_WEIGHTS, answer_report_question, stream_review
-from .core.providers import LLMClient, PROVIDERS, ProviderError, get_provider
+from .core.providers import API_FORMATS, LLMClient, ProviderError, get_api_format
 
 
 app = FastAPI(
@@ -38,20 +38,20 @@ async def health() -> dict[str, str]:
     return {"status": "ok", "architecture": "stateless-byok"}
 
 
-@app.get("/api/providers")
-async def providers() -> dict[str, object]:
+@app.get("/api/formats")
+async def formats() -> dict[str, object]:
     return {
-        "providers": [provider.public_dict() for provider in PROVIDERS.values()],
+        "formats": [api_format.public_dict() for api_format in API_FORMATS.values()],
         "presets": list(PRESET_WEIGHTS),
         "max_upload_bytes": MAX_UPLOAD_BYTES,
         "max_document_chars": MAX_DOCUMENT_CHARS,
     }
 
 
-@app.post("/api/providers/validate")
-async def validate_provider(payload: ProviderValidationRequest) -> dict[str, str]:
+@app.post("/api/formats/validate")
+async def validate_format(payload: ProviderValidationRequest) -> dict[str, str]:
     try:
-        get_provider(payload.provider)
+        get_api_format(payload.api_format)
         await LLMClient(payload).validate()
     except ProviderError as error:
         raise HTTPException(status_code=400, detail=str(error)) from None
@@ -61,14 +61,15 @@ async def validate_provider(payload: ProviderValidationRequest) -> dict[str, str
 @app.post("/api/review/run")
 async def run_review(
     file: UploadFile = File(...),
-    provider: str = Form(...),
+    api_format: str = Form(...),
+    base_url: str = Form(...),
     api_key: str = Form(...),
     model: str = Form(...),
     preset: str = Form("normal"),
 ) -> StreamingResponse:
     try:
-        credentials = ProviderCredentials(provider=provider, api_key=api_key, model=model)
-        get_provider(credentials.provider)
+        credentials = ProviderCredentials(api_format=api_format, base_url=base_url, api_key=api_key, model=model)
+        get_api_format(credentials.api_format)
     except (ValidationError, ProviderError) as error:
         raise HTTPException(status_code=422, detail=str(error)) from None
 
@@ -96,7 +97,7 @@ async def run_review(
 @app.post("/api/review/chat")
 async def review_chat(payload: ChatRequest) -> dict[str, object]:
     try:
-        get_provider(payload.provider)
+        get_api_format(payload.api_format)
         return await answer_report_question(
             credentials=payload,
             message=payload.message,

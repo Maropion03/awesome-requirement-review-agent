@@ -1,13 +1,10 @@
 const DEFAULT_API_BASE_URL =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) || '/api'
 
-export const PROVIDER_FALLBACKS = [
-  { id: 'minimax', name: 'MiniMax', protocol: 'openai', default_model: 'MiniMax-M2.7', key_hint: 'MiniMax API Key' },
-  { id: 'openai', name: 'OpenAI', protocol: 'openai', default_model: 'gpt-5.2', key_hint: 'sk-...' },
-  { id: 'anthropic', name: 'Anthropic', protocol: 'anthropic', default_model: 'claude-sonnet-5', key_hint: 'sk-ant-...' },
-  { id: 'deepseek', name: 'DeepSeek', protocol: 'openai', default_model: 'deepseek-v4-flash', key_hint: 'sk-...' },
-  { id: 'gemini', name: 'Google Gemini', protocol: 'openai', default_model: 'gemini-3.6-flash', key_hint: 'Google AI API Key' },
-  { id: 'openrouter', name: 'OpenRouter', protocol: 'openai', default_model: '~openai/gpt-latest', key_hint: 'sk-or-v1-...' },
+export const API_FORMAT_FALLBACKS = [
+  { id: 'openai_chat', name: 'OpenAI Chat Completions', protocol: 'openai_chat', default_base_url: 'https://api.openai.com/v1', default_model: 'gpt-5.2', key_hint: 'API Key', endpoint_hint: '/chat/completions' },
+  { id: 'openai_responses', name: 'OpenAI Responses', protocol: 'openai_responses', default_base_url: 'https://api.openai.com/v1', default_model: 'gpt-5.2', key_hint: 'API Key', endpoint_hint: '/responses' },
+  { id: 'anthropic_messages', name: 'Anthropic Messages', protocol: 'anthropic_messages', default_base_url: 'https://api.anthropic.com', default_model: 'claude-sonnet-5', key_hint: 'API Key', endpoint_hint: '/v1/messages' },
 ]
 
 export function createApiUrl(baseUrl = DEFAULT_API_BASE_URL, path = '') {
@@ -39,35 +36,37 @@ async function parseJsonResponse(response) {
   return data
 }
 
-export async function loadProviderCatalog({
+export async function loadFormatCatalog({
   baseUrl = DEFAULT_API_BASE_URL,
   fetchImpl = fetch,
 } = {}) {
   const response = await requestJsonWithFallback({
     baseUrl,
-    path: '/providers',
+    path: '/formats',
     fetchImpl,
   })
   return parseJsonResponse(response)
 }
 
-export async function validateProvider({
-  baseUrl = DEFAULT_API_BASE_URL,
-  provider,
+export async function validateFormat({
+  apiBaseUrl = DEFAULT_API_BASE_URL,
+  apiFormat,
+  endpointBaseUrl,
   apiKey,
   model,
   fetchImpl = fetch,
 }) {
   const response = await requestJsonWithFallback({
-    baseUrl,
-    path: '/providers/validate',
+    baseUrl: apiBaseUrl,
+    path: '/formats/validate',
     options: {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        provider,
+        api_format: apiFormat,
+        base_url: endpointBaseUrl,
         api_key: apiKey,
         model,
       }),
@@ -91,9 +90,10 @@ function dispatchReviewEvent(payload, callbacks) {
 }
 
 export async function startReviewStream({
-  baseUrl = DEFAULT_API_BASE_URL,
+  apiBaseUrl = DEFAULT_API_BASE_URL,
   file,
-  provider,
+  apiFormat,
+  endpointBaseUrl,
   apiKey,
   model,
   preset,
@@ -108,12 +108,13 @@ export async function startReviewStream({
 }) {
   const body = new FormData()
   body.append('file', file)
-  body.append('provider', provider)
+  body.append('api_format', apiFormat)
+  body.append('base_url', endpointBaseUrl)
   body.append('api_key', apiKey)
   body.append('model', model)
   body.append('preset', preset)
 
-  const response = await fetchImpl(createApiUrl(baseUrl, '/review/run'), {
+  const response = await fetchImpl(createApiUrl(apiBaseUrl, '/review/run'), {
     method: 'POST',
     body,
     signal,

@@ -8,8 +8,8 @@ The application lets a user review a PRD with their own model account. The deplo
 
 ```mermaid
 flowchart LR
-    B["Browser · Vue SPA"] -->|"document + provider + model + API Key"| V["Vercel FastAPI Function"]
-    V -->|"fixed provider host"| P["Selected model API"]
+    B["Browser · Vue SPA"] -->|"document + format + Base URL + model + API Key"| V["Vercel FastAPI Function"]
+    V -->|"validated public HTTPS endpoint"| P["Configured model API"]
     P -->|"model response"| V
     V -->|"NDJSON progress + report"| B
 ```
@@ -19,12 +19,12 @@ flowchart LR
 - The function parses Markdown/DOCX/text-based PDF bytes in memory and creates no upload file.
 - Six dimension tasks run concurrently. Each model output is validated independently.
 - Report aggregation, weighting, issue IDs, and recommendation thresholds are deterministic Python logic.
-- The browser keeps the report, local issue status, and chat history in memory. Provider, model, preset, and API Key are persisted in plaintext `localStorage` by explicit product design.
+- The browser keeps the report, local issue status, and chat history in memory. API format, Base URL, model, preset, and API Key are persisted in plaintext `localStorage` by explicit product design.
 
 ## Trust boundaries
 
 1. The PRD and Key leave the browser and transit the Vercel Function.
-2. The function sends them only to the selected provider's fixed official host.
+2. The function resolves the configured host, rejects non-public addresses, and sends them only to a public HTTPS 443 endpoint without following redirects.
 3. The Key is opaque, never interpolated into URLs, never returned, and never included in an error.
 4. PRD content is marked as untrusted data in model system prompts. The model receives no tools.
 5. A self-hosted deployment is required when a user cannot trust the Vercel deployment operator.
@@ -37,7 +37,7 @@ The former share endpoint was removed: a seven-day link cannot be implemented ho
 
 ## External systems
 
-The application makes outbound calls only to the provider selected from the server catalog. It has no email, notification, webhook, cron, payment, or background automation integration.
+The application makes outbound calls only to the user-configured endpoint after validation. DNS validation reduces SSRF risk but cannot fully eliminate DNS rebinding without a pinned resolver/transport. It has no email, notification, webhook, cron, payment, or background automation integration.
 
 ## Failure strategy
 

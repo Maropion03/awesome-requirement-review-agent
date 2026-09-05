@@ -59,7 +59,7 @@
         <section class="surface-card rail-card">
           <p class="overline">Run summary</p>
           <dl>
-            <div><dt>当前模型</dt><dd>{{ providerLabel || '未配置' }}</dd></div>
+            <div><dt>当前接口</dt><dd>{{ formatLabel || '未配置' }}</dd></div>
             <div><dt>已完成维度</dt><dd>{{ completedDimensions }}/6</dd></div>
             <div><dt>当前进度</dt><dd>{{ assistantSnapshot.progress || 0 }}%</dd></div>
           </dl>
@@ -91,7 +91,7 @@ import { getIssueIdentifier } from '../../lib/issueState.js'
 const props = defineProps({
   report: { type: Object, default: () => ({ score: '--', suggestion: '尚未生成', summary: '', issues: [] }) },
   canChat: Boolean,
-  providerLabel: String,
+  formatLabel: String,
   chatMessages: { type: Array, default: () => [] },
   selectedIssue: Object,
   assistantSuggestedActions: { type: Array, default: () => [] },

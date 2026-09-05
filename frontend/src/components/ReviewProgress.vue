@@ -6,7 +6,7 @@
       <div class="terminal-title"><i></i><i></i><i></i><span>agent_terminal.sh</span></div>
       <div class="terminal-log">
         <p class="success">[SYSTEM] Vercel stateless runtime ready.</p>
-        <p class="info">[API] BYOK provider request configured.</p>
+        <p class="info">[API] BYOK endpoint request configured.</p>
         <p v-for="(line, index) in outputLines" :key="`${line}-${index}`" :class="lineTone(line)">{{ line }}</p>
         <p v-if="!streamText" class="muted">[WAITING] Waiting for document upload...</p>
       </div>

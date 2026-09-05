@@ -18,7 +18,7 @@
           </div>
           <button class="api-state" type="button" @click="$emit('navigate', 'settings')">
             <span>{{ apiConfig.apiKey ? 'API 已配置' : '配置 API' }}</span>
-            <small>{{ providerName }} · {{ apiConfig.model }}</small>
+            <small>{{ formatName }} · {{ apiConfig.model }}</small>
           </button>
         </section>
 
@@ -81,7 +81,7 @@ const props = defineProps({
   uploadError: { type: String, default: '' },
   isRunning: Boolean,
   apiConfig: { type: Object, required: true },
-  providers: { type: Array, default: () => [] },
+  formats: { type: Array, default: () => [] },
   streamText: { type: String, default: '' },
   agentStages: { type: Array, default: () => [] },
   dimensions: { type: Array, default: () => [] },
@@ -91,8 +91,8 @@ const props = defineProps({
 
 const emit = defineEmits(['update:selected-file-name', 'update:api-config', 'file-selected', 'clear-file', 'start-review', 'reset-demo', 'navigate'])
 const selectedFileNameModel = computed({ get: () => props.selectedFileName, set: (value) => emit('update:selected-file-name', value) })
-const providerName = computed(() => props.providers.find((item) => item.id === props.apiConfig.provider)?.name || props.apiConfig.provider || '未配置')
-const canStart = computed(() => Boolean(!props.isRunning && props.selectedFileName && props.apiConfig.apiKey?.trim() && props.apiConfig.model?.trim()))
+const formatName = computed(() => props.formats.find((item) => item.id === props.apiConfig.apiFormat)?.name || props.apiConfig.apiFormat || '未配置')
+const canStart = computed(() => Boolean(!props.isRunning && props.selectedFileName && props.apiConfig.baseUrl?.trim() && props.apiConfig.apiKey?.trim() && props.apiConfig.model?.trim()))
 
 const presets = [
   { id: 'normal', label: '标准模式', description: '覆盖完整业务逻辑与常规功能审查。' },

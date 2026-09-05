@@ -47,5 +47,5 @@ jobs:
           set -euo pipefail
           curl --fail --silent --show-error --retry 3 "$SMOKE_URL/" | grep -q 'id="app"'
           curl --fail --silent --show-error --retry 3 "$SMOKE_URL/api/health" | jq -e '.status == "ok" and .architecture == "stateless-byok"'
-          curl --fail --silent --show-error --retry 3 "$SMOKE_URL/api/providers" | jq -e '.providers | length == 6'
-          test "$(curl --fail --silent --show-error --retry 3 "$SMOKE_URL/api/providers" | jq '[.. | objects | has("base_url")] | any')" = "false"
+          curl --fail --silent --show-error --retry 3 "$SMOKE_URL/api/formats" | jq -e '.formats | length == 3'
+          curl --fail --silent --show-error --retry 3 "$SMOKE_URL/api/formats" | jq -e '[.formats[].id] == ["openai_chat", "openai_responses", "anthropic_messages"]'

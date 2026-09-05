@@ -14,7 +14,7 @@
     <section class="run-card">
       <p>Current Run</p>
       <dl>
-        <div><dt>Provider</dt><dd>{{ providerName || '未配置' }}</dd></div>
+        <div><dt>Format</dt><dd>{{ formatName || '未配置' }}</dd></div>
         <div><dt>Preset</dt><dd>{{ preset }}</dd></div>
         <div><dt>Progress</dt><dd>{{ progress }}%</dd></div>
       </dl>
@@ -32,7 +32,7 @@ const props = defineProps({
   runStatus: { type: String, default: 'idle' },
   preset: { type: String, default: 'normal' },
   progress: { type: Number, default: 0 },
-  providerName: { type: String, default: '' },
+  formatName: { type: String, default: '' },
 })
 
 defineEmits(['navigate', 'new-project'])

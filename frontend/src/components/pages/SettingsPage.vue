@@ -2,7 +2,7 @@
   <main class="page-shell settings-page">
     <PageHeader
       title="API 设置"
-      description="选择模型供应商并保存凭据。配置只保存在当前浏览器，Vercel 后端保持无状态。"
+      description="选择接口格式并保存 Base URL 与凭据。配置只保存在当前浏览器，Vercel 后端保持无状态。"
       :can-view-report="canViewReport"
       :can-open-assistant="canOpenAssistant"
       @navigate="$emit('navigate', $event)"
@@ -13,20 +13,20 @@
       <div>
         <p class="overline">Bring your own key</p>
         <h1>连接你的模型</h1>
-        <p>支持 MiniMax、OpenAI、Anthropic、DeepSeek、Gemini 和 OpenRouter。保存后，工作台会自动使用这套配置。</p>
+        <p>支持 OpenAI Chat Completions、OpenAI Responses 和 Anthropic Messages 三种接口格式。</p>
       </div>
       <span class="saved-state" :class="{ ready: Boolean(apiConfig.apiKey) }">{{ apiConfig.apiKey ? '已持久化' : '等待配置' }}</span>
     </section>
 
-    <ConfigPanel :model-value="apiConfig" :providers="providers" @update:model-value="$emit('update:api-config', $event)" />
+    <ConfigPanel :model-value="apiConfig" :formats="formats" @update:model-value="$emit('update:api-config', $event)" />
 
     <footer class="settings-footer surface-card">
       <div>
         <strong>本地持久化说明</strong>
-        <p>API Key 会写入此浏览器的 localStorage，不会进入仓库、Vercel 环境变量、数据库或服务端日志。</p>
+        <p>Base URL 与 API Key 会写入此浏览器的 localStorage，不会进入仓库、Vercel 环境变量、数据库或服务端日志。</p>
       </div>
       <button class="clear-button" type="button" @click="$emit('clear-api-config')">清除本地配置</button>
-      <button class="pill-button primary" type="button" :disabled="!apiConfig.apiKey || !apiConfig.model" @click="$emit('navigate', 'workbench')">保存并返回工作台</button>
+      <button class="pill-button primary" type="button" :disabled="!apiConfig.baseUrl || !apiConfig.apiKey || !apiConfig.model" @click="$emit('navigate', 'workbench')">保存并返回工作台</button>
     </footer>
   </main>
 </template>
@@ -37,7 +37,7 @@ import PageHeader from '../layout/PageHeader.vue'
 
 defineProps({
   apiConfig: { type: Object, required: true },
-  providers: { type: Array, default: () => [] },
+  formats: { type: Array, default: () => [] },
   canViewReport: Boolean,
   canOpenAssistant: Boolean,
 })

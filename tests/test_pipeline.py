@@ -35,7 +35,7 @@ class FakeConcurrentClient:
 
 class PipelineTests(unittest.IsolatedAsyncioTestCase):
     async def collect(self, client):
-        credentials = ProviderCredentials(provider="minimax", api_key="key", model="MiniMax-M2.7")
+        credentials = ProviderCredentials(api_format="openai_chat", base_url="https://api.example.com/v1", api_key="key", model="model")
         raw_events = [chunk async for chunk in stream_review(
             credentials=credentials,
             prd_text="# Demo PRD\n## 验收标准\n提交后显示成功，并需要定义完整的业务目标。",
@@ -76,7 +76,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
                     raise
 
         client = BlockingClient()
-        credentials = ProviderCredentials(provider="minimax", api_key="key", model="MiniMax-M2.7")
+        credentials = ProviderCredentials(api_format="openai_chat", base_url="https://api.example.com/v1", api_key="key", model="model")
         stream = stream_review(
             credentials=credentials,
             prd_text="# Demo PRD\nA sufficiently detailed product requirement document.",

@@ -1,99 +1,71 @@
 <template>
   <section class="connection-panel surface-card" aria-labelledby="connection-title">
     <header class="panel-head">
-      <div>
-        <p class="overline">Bring your own key</p>
-        <h2 id="connection-title">连接你的模型</h2>
-      </div>
-      <span class="protocol-badge">{{ activeProvider.protocol === 'anthropic' ? 'Anthropic Messages' : 'OpenAI-compatible' }}</span>
+      <div><p class="overline">Bring your own endpoint</p><h2 id="connection-title">连接你的模型接口</h2></div>
+      <span class="protocol-badge">{{ activeFormat.endpoint_hint }}</span>
     </header>
 
-    <div class="provider-strip" role="radiogroup" aria-label="API 供应商">
+    <div class="format-strip" role="radiogroup" aria-label="API 接口格式">
       <button
-        v-for="provider in providers"
-        :key="provider.id"
+        v-for="format in formats"
+        :key="format.id"
         type="button"
-        class="provider-option"
-        :class="{ active: modelValue.provider === provider.id }"
-        :aria-checked="modelValue.provider === provider.id"
+        class="format-option"
+        :class="{ active: modelValue.apiFormat === format.id }"
+        :aria-checked="modelValue.apiFormat === format.id"
         role="radio"
-        @click="selectProvider(provider)"
+        @click="selectFormat(format)"
       >
-        <span>{{ provider.name }}</span>
-        <small>{{ provider.id === 'minimax' ? '原项目默认' : provider.protocol }}</small>
+        <span>{{ format.name }}</span><small>{{ format.endpoint_hint }}</small>
       </button>
     </div>
 
     <div class="config-grid">
+      <label class="field base-url-field">
+        <span>Base URL</span>
+        <input type="url" :value="modelValue.baseUrl" :placeholder="activeFormat.default_base_url" autocomplete="off" spellcheck="false" @input="updateField('baseUrl', $event.target.value)" />
+      </label>
       <label class="field key-field">
         <span>API Key</span>
         <div class="secret-input">
-          <input
-            :type="showKey ? 'text' : 'password'"
-            :value="modelValue.apiKey"
-            :placeholder="activeProvider.key_hint"
-            autocomplete="off"
-            spellcheck="false"
-            @input="updateField('apiKey', $event.target.value)"
-          />
+          <input :type="showKey ? 'text' : 'password'" :value="modelValue.apiKey" :placeholder="activeFormat.key_hint" autocomplete="off" spellcheck="false" @input="updateField('apiKey', $event.target.value)" />
           <button type="button" @click="showKey = !showKey">{{ showKey ? '隐藏' : '显示' }}</button>
         </div>
       </label>
-
       <label class="field">
         <span>模型名</span>
-        <input
-          type="text"
-          :value="modelValue.model"
-          :placeholder="activeProvider.default_model"
-          autocomplete="off"
-          spellcheck="false"
-          @input="updateField('model', $event.target.value)"
-        />
+        <input type="text" :value="modelValue.model" :placeholder="activeFormat.default_model" autocomplete="off" spellcheck="false" @input="updateField('model', $event.target.value)" />
       </label>
-
       <label class="field">
         <span>评审预设</span>
         <select :value="modelValue.preset" @change="updateField('preset', $event.target.value)">
-          <option value="normal">常规项目</option>
-          <option value="p0_critical">P0 紧急项目</option>
-          <option value="innovation">创新探索项目</option>
+          <option value="normal">常规项目</option><option value="p0_critical">P0 紧急项目</option><option value="innovation">创新探索项目</option>
         </select>
       </label>
-
       <div class="connection-test">
         <span class="test-status" :class="testState">{{ testMessage }}</span>
-        <button type="button" class="test-button" :disabled="!canTest || testState === 'testing'" @click="testConnection">
-          {{ testState === 'testing' ? '验证中…' : '测试连接' }}
-        </button>
+        <button type="button" class="test-button" :disabled="!canTest || testState === 'testing'" @click="testConnection">{{ testState === 'testing' ? '验证中…' : '测试连接' }}</button>
       </div>
     </div>
 
-    <p class="trust-note">
-      <span aria-hidden="true">↳</span>
-      Key 会以明文写入当前浏览器的 localStorage，评审时经 Vercel 函数转发给所选模型。请勿在公共或共享设备上保存；评审会并行请求 6 个维度，请关注模型费用。
-    </p>
+    <p class="trust-note"><span aria-hidden="true">↳</span>Key 与 Base URL 会以明文写入当前浏览器的 localStorage。服务端仅访问解析为公网地址的 HTTPS 443 端点，不跟随重定向；评审会并行请求 6 个维度。</p>
   </section>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
-import { PROVIDER_FALLBACKS, validateProvider } from '../lib/reviewApi.js'
+import { API_FORMAT_FALLBACKS, validateFormat } from '../lib/reviewApi.js'
 
 const props = defineProps({
   modelValue: { type: Object, required: true },
-  providers: { type: Array, default: () => PROVIDER_FALLBACKS },
+  formats: { type: Array, default: () => API_FORMAT_FALLBACKS },
 })
-
 const emit = defineEmits(['update:modelValue'])
 const showKey = ref(false)
 const testState = ref('idle')
 const testMessage = ref('尚未验证')
-
-const activeProvider = computed(() => (
-  props.providers.find((provider) => provider.id === props.modelValue.provider) || props.providers[0] || PROVIDER_FALLBACKS[0]
-))
-const canTest = computed(() => Boolean(props.modelValue.apiKey?.trim() && props.modelValue.model?.trim()))
+const activeFormat = computed(() => props.formats.find((format) => format.id === props.modelValue.apiFormat) || props.formats[0] || API_FORMAT_FALLBACKS[0])
+const canTest = computed(() => Boolean(props.modelValue.baseUrl?.trim() && props.modelValue.apiKey?.trim() && props.modelValue.model?.trim()))
 
 function updateField(field, value) {
   testState.value = 'idle'
@@ -101,10 +73,15 @@ function updateField(field, value) {
   emit('update:modelValue', { ...props.modelValue, [field]: value })
 }
 
-function selectProvider(provider) {
-  emit('update:modelValue', { ...props.modelValue, provider: provider.id, model: provider.default_model })
+function selectFormat(format) {
+  emit('update:modelValue', {
+    ...props.modelValue,
+    apiFormat: format.id,
+    baseUrl: format.default_base_url,
+    model: format.default_model,
+  })
   testState.value = 'idle'
-  testMessage.value = '供应商已切换，尚未验证'
+  testMessage.value = '接口格式已切换，尚未验证'
 }
 
 async function testConnection() {
@@ -112,11 +89,7 @@ async function testConnection() {
   testState.value = 'testing'
   testMessage.value = '正在发送最小验证请求'
   try {
-    const result = await validateProvider({
-      provider: props.modelValue.provider,
-      apiKey: props.modelValue.apiKey,
-      model: props.modelValue.model,
-    })
+    const result = await validateFormat({ apiFormat: props.modelValue.apiFormat, endpointBaseUrl: props.modelValue.baseUrl, apiKey: props.modelValue.apiKey, model: props.modelValue.model })
     testState.value = 'success'
     testMessage.value = result.message || '连接成功'
   } catch (error) {
@@ -131,28 +104,18 @@ async function testConnection() {
 .panel-head { padding: 24px 26px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--line); }
 h2 { margin: 7px 0 0; font-size: 24px; }
 .protocol-badge { padding: 8px 12px; border-radius: 999px; background: var(--soft); color: var(--primary); font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
-.provider-strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border-bottom: 1px solid var(--line); }
-.provider-option { min-width: 0; padding: 15px 12px; display: grid; gap: 4px; border: 0; border-right: 1px solid var(--line); background: var(--soft); color: var(--ink); text-align: left; cursor: pointer; }
-.provider-option:last-child { border-right: 0; }
-.provider-option:hover { background: #fff7e9; }
-.provider-option.active { background: var(--primary); color: #fff; }
-.provider-option span { overflow: hidden; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
-.provider-option small { opacity: .7; font-size: 10px; }
-.config-grid { padding: 24px 26px; display: grid; grid-template-columns: minmax(250px, 1.35fr) minmax(190px, .9fr) minmax(170px, .65fr) auto; align-items: end; gap: 16px; }
+.format-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--line); }
+.format-option { min-width: 0; padding: 17px 16px; display: grid; gap: 5px; border: 0; border-right: 1px solid var(--line); background: var(--soft); color: var(--ink); text-align: left; cursor: pointer; }
+.format-option:last-child { border-right: 0; }.format-option:hover { background: #fff7e9; }.format-option.active { background: var(--primary); color: #fff; }
+.format-option span { overflow: hidden; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }.format-option small { opacity: .72; font: 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.config-grid { padding: 24px 26px; display: grid; grid-template-columns: minmax(250px, 1.25fr) minmax(230px, 1.1fr) minmax(170px, .8fr) minmax(150px, .6fr) auto; align-items: end; gap: 14px; }
 .field { min-width: 0; display: grid; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 700; }
 .field input, .field select { width: 100%; box-sizing: border-box; min-height: 44px; padding: 0 13px; border: 1px solid var(--line); border-radius: 13px; background: #fff; color: var(--ink); font: 13px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .field input:focus, .field select:focus { border-color: var(--primary); outline: 3px solid rgb(239 108 0 / 14%); }
-.secret-input { display: flex; }
-.secret-input input { border-radius: 13px 0 0 13px; }
-.secret-input button { padding: 0 14px; border: 1px solid var(--line); border-left: 0; border-radius: 0 13px 13px 0; background: var(--soft); color: var(--primary); cursor: pointer; font-weight: 700; }
-.connection-test { display: grid; gap: 8px; }
-.test-status { max-width: 160px; overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.test-status.success { color: var(--success); }
-.test-status.error { color: var(--danger); }
-.test-button { min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--primary); color: #fff; cursor: pointer; font-weight: 800; white-space: nowrap; }
-.test-button:disabled { cursor: not-allowed; opacity: .45; }
-.trust-note { margin: 0; padding: 16px 26px; display: flex; gap: 9px; border-top: 1px solid var(--line); background: #fff8ed; color: var(--muted); font-size: 12px; line-height: 1.7; }
-.trust-note span { color: var(--primary); }
-@media (max-width: 1060px) { .provider-strip { grid-template-columns: repeat(3, 1fr); } .provider-option { border-bottom: 1px solid var(--line); } .config-grid { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 650px) { .provider-strip, .config-grid { grid-template-columns: 1fr; } .provider-option { border-right: 0; } .panel-head { align-items: flex-start; flex-direction: column; } }
+.secret-input { display: flex; }.secret-input input { border-radius: 13px 0 0 13px; }.secret-input button { padding: 0 14px; border: 1px solid var(--line); border-left: 0; border-radius: 0 13px 13px 0; background: var(--soft); color: var(--primary); cursor: pointer; font-weight: 700; }
+.connection-test { display: grid; gap: 8px; }.test-status { max-width: 150px; overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }.test-status.success { color: var(--success); }.test-status.error { color: var(--danger); }
+.test-button { min-height: 44px; padding: 0 17px; border: 0; border-radius: 999px; background: var(--primary); color: #fff; cursor: pointer; font-weight: 800; white-space: nowrap; }.test-button:disabled { cursor: not-allowed; opacity: .45; }
+.trust-note { margin: 0; padding: 16px 26px; display: flex; gap: 9px; border-top: 1px solid var(--line); background: #fff8ed; color: var(--muted); font-size: 12px; line-height: 1.7; }.trust-note span { color: var(--primary); }
+@media (max-width: 1180px) { .config-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 650px) { .format-strip, .config-grid { grid-template-columns: 1fr; } .format-option { border-right: 0; border-bottom: 1px solid var(--line); } .panel-head { align-items: flex-start; flex-direction: column; } }
 </style>

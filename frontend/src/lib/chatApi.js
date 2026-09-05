@@ -18,8 +18,9 @@ async function parseJsonResponse(response) {
 }
 
 export async function sendChatMessage({
-  baseUrl = DEFAULT_API_BASE_URL,
-  provider,
+  apiBaseUrl = DEFAULT_API_BASE_URL,
+  apiFormat,
+  endpointBaseUrl,
   apiKey,
   model,
   report,
@@ -28,7 +29,7 @@ export async function sendChatMessage({
   fetchImpl = fetch,
 }) {
   const response = await requestJsonWithFallback({
-    baseUrl,
+    baseUrl: apiBaseUrl,
     path: '/review/chat',
     options: {
       method: 'POST',
@@ -36,7 +37,8 @@ export async function sendChatMessage({
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        provider,
+        api_format: apiFormat,
+        base_url: endpointBaseUrl,
         api_key: apiKey,
         model,
         report,
