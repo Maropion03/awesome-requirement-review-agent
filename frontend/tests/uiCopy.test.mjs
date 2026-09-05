@@ -14,6 +14,8 @@ test('primary workspace exposes document, persisted BYOK settings, progress, and
   const reportViewer = readSourceFile('src/components/ReportViewer.vue')
 
   assert.match(uploadArea, /拖拽 PRD 到这里/)
+  assert.match(uploadArea, /accept="\.md,\.docx,\.pdf"/)
+  assert.match(uploadArea, /扫描件请先完成 OCR/)
   assert.match(uploadArea, /3\.5MB/)
 
   assert.match(configPanel, />连接你的模型</)

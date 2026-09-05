@@ -1,11 +1,11 @@
 <template>
   <section class="upload-card surface-card" :class="{ dragging: isDragging, error: errorMessage }">
     <label @dragover.prevent="isDragging = true" @dragleave.prevent="isDragging = false" @drop.prevent="handleDrop">
-      <input type="file" accept=".md,.docx" :disabled="disabled" @change="handleFileChange" />
+      <input type="file" accept=".md,.docx,.pdf" :disabled="disabled" @change="handleFileChange" />
       <template v-if="!modelValue">
         <span class="file-icon" aria-hidden="true">▤</span>
         <strong>拖拽 PRD 到这里</strong>
-        <p>支持 `.md` 和 `.docx`，大小不超过 3.5MB。上传成功后即可启动无状态评审。</p>
+        <p>支持 `.md`、`.docx` 和可提取文本的 `.pdf`，大小不超过 3.5MB。扫描件请先完成 OCR。</p>
         <span class="choose-button">选择文件</span>
       </template>
       <template v-else>

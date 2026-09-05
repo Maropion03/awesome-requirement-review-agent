@@ -9,7 +9,7 @@ sequenceDiagram
     participant V as Vercel Function
     participant M as Model API
 
-    U->>B: Select .md/.docx and enter Key
+    U->>B: Select .md/.docx/.pdf and enter Key
     B->>V: POST /api/review/run (multipart)
     V->>V: Validate provider, key shape, type, size; parse in memory
     V-->>B: connected + six dimension_start events

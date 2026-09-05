@@ -9,12 +9,14 @@ from zipfile import BadZipFile, ZipFile
 from docx import Document
 from docx.table import Table
 from docx.text.paragraph import Paragraph
+from pypdf import PdfReader
+from pypdf.errors import PdfReadError
 
 
 MAX_UPLOAD_BYTES = 3_500_000
 MAX_DOCUMENT_CHARS = 80_000
 MAX_DOCX_UNCOMPRESSED_BYTES = 25_000_000
-ALLOWED_EXTENSIONS = {".md", ".docx"}
+ALLOWED_EXTENSIONS = {".md", ".docx", ".pdf"}
 
 
 class DocumentError(ValueError):
@@ -43,10 +45,37 @@ def _parse_docx(content: bytes) -> str:
     return "\n".join(lines)
 
 
+def _parse_pdf(content: bytes) -> str:
+    try:
+        reader = PdfReader(BytesIO(content), strict=False)
+        if reader.is_encrypted and not reader.decrypt(""):
+            raise DocumentError("PDF 已加密，请移除密码后重新上传")
+
+        lines: list[str] = []
+        extracted_chars = 0
+        for page in reader.pages:
+            page_text = (page.extract_text() or "").strip()
+            if not page_text:
+                continue
+            extracted_chars += len(page_text)
+            if extracted_chars > MAX_DOCUMENT_CHARS:
+                raise DocumentError("文档正文不能超过 8 万字符，请拆分后评审")
+            lines.append(page_text)
+    except DocumentError:
+        raise
+    except (PdfReadError, ValueError, OSError, TypeError) as error:
+        raise DocumentError("PDF 无法解析，请确认文件没有损坏或加密") from error
+
+    text = "\n".join(lines)
+    if len(text) < 20:
+        raise DocumentError("PDF 未提取到足够文本；扫描件请先完成 OCR 后重新上传")
+    return text
+
+
 def parse_document(filename: str, content: bytes) -> str:
     suffix = Path(filename or "").suffix.lower()
     if suffix not in ALLOWED_EXTENSIONS:
-        raise DocumentError("仅支持 .md 和 .docx 文档")
+        raise DocumentError("仅支持 .md、.docx 和 .pdf 文档")
     if not content:
         raise DocumentError("文档内容为空")
     if len(content) > MAX_UPLOAD_BYTES:
@@ -55,8 +84,10 @@ def parse_document(filename: str, content: bytes) -> str:
     try:
         if suffix == ".md":
             text = content.decode("utf-8-sig")
-        else:
+        elif suffix == ".docx":
             text = _parse_docx(content)
+        else:
+            text = _parse_pdf(content)
     except DocumentError:
         raise
     except (UnicodeDecodeError, ValueError, OSError) as error:

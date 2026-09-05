@@ -8,7 +8,7 @@
 [![BYOK](https://img.shields.io/badge/AI-BYOK-ef6c00)](#api-key-如何处理)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-一个开源 PRD 评审工作台。用户自带模型 API Key，上传 Markdown 或 DOCX 文档后，系统从六个维度并行评审，输出证据、评分和可执行修改建议。
+一个开源 PRD 评审工作台。用户自带模型 API Key，上传 Markdown、DOCX 或含文本层的 PDF 文档后，系统从六个维度并行评审，输出证据、评分和可执行修改建议。
 
 > 当前版本无状态运行：不再内置 MiniMax Key，没有账号系统，也不在服务端保存文档、报告或对话。
 
@@ -101,7 +101,7 @@ vercel --prod
 | POST | `/api/review/run` | 文档 + BYOK 配置，返回 NDJSON 进度和报告 |
 | POST | `/api/review/chat` | 携带报告上下文的无状态追问 |
 
-上传上限为 3.5MB，给 Vercel Function 的 4.5MB 请求体限制预留 Multipart 开销；解析后的正文上限为 8 万字符，避免超大上下文产生意外费用。一次完整评审会并行发起 6 次模型调用，连接测试、格式修复和追问还会额外消耗调用额度。
+上传上限为 3.5MB，给 Vercel Function 的 4.5MB 请求体限制预留 Multipart 开销；解析后的正文上限为 8 万字符，避免超大上下文产生意外费用。PDF 需要包含可提取的文本层，扫描件应先完成 OCR。一次完整评审会并行发起 6 次模型调用，连接测试、格式修复和追问还会额外消耗调用额度。
 
 ## 目录
 

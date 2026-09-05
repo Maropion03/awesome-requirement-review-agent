@@ -224,7 +224,7 @@ function markDimensionStatus(dimensionName, status) {
 
 function validateFile(file) {
   if (!file) return '请选择一份 PRD 文档'
-  if (!/\.(md|docx)$/i.test(file.name)) return '仅支持 .md 和 .docx 文档'
+  if (!/\.(md|docx|pdf)$/i.test(file.name)) return '仅支持 .md、.docx 和 .pdf 文档'
   if (file.size > MAX_FILE_BYTES) return '文档不能超过 3.5MB'
   return ''
 }

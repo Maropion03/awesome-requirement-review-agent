@@ -8,7 +8,7 @@
 [![BYOK](https://img.shields.io/badge/AI-BYOK-ef6c00)](#api-key-handling)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-An open-source PRD review workbench for product teams. Bring your own model API key, upload a Markdown or DOCX PRD, and receive a six-dimension review with evidence, scores, and actionable revisions.
+An open-source PRD review workbench for product teams. Bring your own model API key, upload a Markdown, DOCX, or text-based PDF PRD, and receive a six-dimension review with evidence, scores, and actionable revisions.
 
 > The app is stateless. It has no built-in MiniMax key, no account system, and no server-side document or report storage.
 
@@ -101,7 +101,7 @@ The repository includes [`vercel.json`](./vercel.json). Production needs no secr
 | POST | `/api/review/run` | Multipart document + BYOK config; returns NDJSON progress and report |
 | POST | `/api/review/chat` | Stateless report follow-up |
 
-Uploads are capped at 3.5MB because Vercel Function request bodies have a 4.5MB platform limit. Extracted text is capped at 80,000 characters to prevent accidental oversized contexts and cost. A complete review makes six concurrent model calls; validation, JSON repair, and chat can add calls.
+Uploads are capped at 3.5MB because Vercel Function request bodies have a 4.5MB platform limit. Extracted text is capped at 80,000 characters to prevent accidental oversized contexts and cost. PDF support covers files with an extractable text layer; scanned PDFs must be OCRed before upload. A complete review makes six concurrent model calls; validation, JSON repair, and chat can add calls.
 
 ## Repository layout
 
