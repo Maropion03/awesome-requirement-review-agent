@@ -167,10 +167,10 @@ class LLMClient:
         self.resolver = resolver
         self.timeout = httpx.Timeout(timeout_seconds, connect=15.0)
 
-    async def complete(self, *, system: str, user: str, max_tokens: int = 2200) -> str:
+    async def complete(self, *, system: str, user: str, max_tokens: int = 2200, images: list[dict[str, str]] | None = None) -> str:
         for attempt in range(2):
             try:
-                return await self._complete_once(system=system, user=user, max_tokens=max_tokens)
+                return await self._complete_once(system=system, user=user, max_tokens=max_tokens, images=images or [])
             except ProviderError:
                 raise
             except (httpx.TimeoutException, httpx.NetworkError):
@@ -179,7 +179,7 @@ class LLMClient:
                 await asyncio.sleep(0.35)
         raise ProviderError("模型服务未返回结果")
 
-    async def _complete_once(self, *, system: str, user: str, max_tokens: int) -> str:
+    async def _complete_once(self, *, system: str, user: str, max_tokens: int, images: list[dict[str, str]]) -> str:
         await validate_public_base_url(self.credentials.base_url, resolver=self.resolver)
         api_key = self.credentials.api_key.get_secret_value()
         api_format = self.credentials.api_format
@@ -192,14 +192,20 @@ class LLMClient:
                 "model": self.credentials.model,
                 "max_tokens": max_tokens,
                 "system": system,
-                "messages": [{"role": "user", "content": user}],
+                "messages": [{"role": "user", "content": [
+                    {"type": "text", "text": user},
+                    *[{"type": "image", "source": {"type": "base64", "media_type": image["mime_type"], "data": image["data"]}} for image in images],
+                ] if images else user}],
             }
         elif api_format == "openai_responses":
             headers["authorization"] = f"Bearer {api_key}"
             payload = {
                 "model": self.credentials.model,
                 "instructions": system,
-                "input": user,
+                "input": [{"role": "user", "content": [
+                    {"type": "input_text", "text": user},
+                    *[{"type": "input_image", "image_url": f"data:{image['mime_type']};base64,{image['data']}"} for image in images],
+                ]}] if images else user,
                 "max_output_tokens": max_tokens,
                 "store": False,
             }
@@ -209,7 +215,10 @@ class LLMClient:
                 "model": self.credentials.model,
                 "messages": [
                     {"role": "system", "content": system},
-                    {"role": "user", "content": user},
+                    {"role": "user", "content": [
+                        {"type": "text", "text": user},
+                        *[{"type": "image_url", "image_url": {"url": f"data:{image['mime_type']};base64,{image['data']}"}} for image in images],
+                    ] if images else user},
                 ],
                 "max_completion_tokens": max_tokens,
             }

@@ -18,7 +18,7 @@ npm run build
 npm audit
 ```
 
-Contracts cover the Vue root entry, BYOK payloads, no session/EventSource flow, NDJSON consumption, 0–100 report mapping, issue state/export, and UI copy.
+Contracts cover the Vue root entry, BYOK payloads, browser-side PDF preparation without raw PDF upload, no session/EventSource flow, NDJSON consumption, 0–100 report mapping, issue state/export, and UI copy.
 
 ## Local deterministic skill
 

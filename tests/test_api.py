@@ -11,7 +11,7 @@ class FakeClient:
     def __init__(self, credentials):
         self.credentials = credentials
 
-    async def complete(self, *, system, user, max_tokens=2200):
+    async def complete(self, *, system, user, max_tokens=2200, images=None):
         return json.dumps({"score": 8, "issues": [], "reasoning": "ok"}, ensure_ascii=False)
 
     async def validate(self):

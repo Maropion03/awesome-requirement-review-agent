@@ -19,6 +19,7 @@ An open-source PRD review workbench for product teams. Bring your own model API 
 - Six concurrent review dimensions: completeness, rationality, user value, technical feasibility, implementation risk, and priority alignment.
 - Evidence-linked issues with severity, actionable revisions, local handling status, and Markdown export.
 - Report-aware follow-up assistant that can explain conclusions, locate source text, and draft PRD-ready changes.
+- Browser-side PDF text extraction plus one multimodal diagram pass that converts flowcharts into deterministic Mermaid context.
 - Browser-persisted BYOK settings for three API formats and any compatible public HTTPS endpoint.
 - Stateless Vercel architecture: no built-in model key, account system, server session, or document database.
 
@@ -98,7 +99,7 @@ The repository includes [`vercel.json`](./vercel.json). Production needs no secr
 | POST | `/api/review/run` | Multipart document + BYOK config; returns NDJSON progress and report |
 | POST | `/api/review/chat` | Stateless report follow-up |
 
-Uploads are capped at 3.5MB because Vercel Function request bodies have a 4.5MB platform limit. Extracted text is capped at 80,000 characters to prevent accidental oversized contexts and cost. PDF support covers files with an extractable text layer; scanned PDFs must be OCRed before upload. A complete review makes six concurrent model calls; validation, JSON repair, and chat can add calls.
+Uploads are capped at 3.5MB. PDF text is extracted in the browser; up to four image-heavy pages are rendered as compressed diagram candidates, so raw PDF bytes do not cross the Vercel Firewall. A multimodal model is called once to produce validated graph data and deterministic Mermaid, then the result is reused by all six reviewers. Vision failure degrades to text-only review. Extracted text is capped at 80,000 characters; scanned PDFs still require OCR.
 
 ## Repository layout
 

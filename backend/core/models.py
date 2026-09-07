@@ -99,6 +99,31 @@ class DimensionReview(BaseModel):
     reasoning: str = Field(min_length=1, max_length=3000)
 
 
+class DiagramEdge(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source: int = Field(ge=0)
+    target: int = Field(ge=0)
+    label: str = Field(default="", max_length=160)
+
+
+class DiagramGraph(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    page: int = Field(ge=1)
+    title: str = Field(default="流程图", max_length=160)
+    nodes: list[str] = Field(min_length=2, max_length=80)
+    edges: list[DiagramEdge] = Field(default_factory=list, max_length=160)
+    confidence: float = Field(ge=0, le=1)
+    unresolved_labels: list[str] = Field(default_factory=list, max_length=30)
+
+
+class DiagramAnalysis(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    diagrams: list[DiagramGraph] = Field(default_factory=list, max_length=4)
+
+
 class ChatRequest(ProviderCredentials):
     message: str = Field(min_length=1, max_length=4000)
     report: dict[str, Any]

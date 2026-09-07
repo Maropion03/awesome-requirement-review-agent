@@ -79,6 +79,25 @@ test('startReviewStream consumes one NDJSON response without a server session', 
   assert.deepEqual(received, ['connected', '需求完整性', 80])
 })
 
+test('prepared PDFs send extracted text and diagram pages without raw PDF bytes', async () => {
+  const body = new ReadableStream({ start(controller) { controller.close() } })
+  let requestBody
+  await startReviewStream({
+    apiBaseUrl: '/api',
+    file: new File(['raw-pdf-bytes'], 'demo.pdf'),
+    preparedDocument: {
+      documentText: 'Extracted PRD text with enough detail for review.',
+      pageCount: 2,
+      diagramPages: [{ pageNumber: 2, blob: new Blob(['jpeg-data'], { type: 'image/jpeg' }) }],
+    },
+    apiFormat: 'openai_chat', endpointBaseUrl: 'https://api.example.com/v1', apiKey: 'key', model: 'vision-model', preset: 'normal',
+    fetchImpl: async (url, options) => { requestBody = options.body; return { ok: true, body } },
+  })
+  assert.equal(requestBody.get('file'), null)
+  assert.match(requestBody.get('document_text'), /Extracted PRD text/)
+  assert.equal(requestBody.getAll('diagram_images').length, 1)
+})
+
 test('mapReportToViewModel preserves a 0-100 total and dimension evidence', () => {
   const viewModel = mapReportToViewModel({
     total_score: 76,

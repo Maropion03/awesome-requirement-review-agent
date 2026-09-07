@@ -283,8 +283,16 @@ async function startReviewFlow() {
   reviewController = new AbortController()
 
   try {
+    let preparedDocument = null
+    if (/\.pdf$/i.test(selectedFile.value.name)) {
+      appendStreamLine('正在浏览器本地提取 PDF 文本并定位流程图候选页面…')
+      const { preparePdfForReview } = await import('./lib/pdfClientParser.js')
+      preparedDocument = await preparePdfForReview(selectedFile.value)
+      appendStreamLine(`PDF 已提取 ${preparedDocument.pageCount} 页，发现 ${preparedDocument.diagramPages.length} 个视觉候选页面。`)
+    }
     await startReviewStream({
       file: selectedFile.value,
+      preparedDocument,
       apiFormat: apiConfig.value.apiFormat,
       endpointBaseUrl: apiConfig.value.baseUrl,
       apiKey: apiConfig.value.apiKey,

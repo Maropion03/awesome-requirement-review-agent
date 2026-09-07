@@ -10,8 +10,14 @@ sequenceDiagram
     participant M as Model API
 
     U->>B: Select .md/.docx/.pdf and enter Key
-    B->>V: POST /api/review/run (multipart)
+    B->>B: For PDF, extract text and render diagram candidates
+    B->>V: POST text or document + optional candidate JPEGs
     V->>V: Validate format, public Base URL, key shape, type, size; parse in memory
+    opt Diagram candidates exist
+      V->>M: One multimodal graph extraction
+      M-->>V: Nodes, edges, confidence
+      V->>V: Validate and generate Mermaid
+    end
     V-->>B: connected + six dimension_start events
     par Six concurrent dimensions
       V->>M: Review dimension with untrusted PRD

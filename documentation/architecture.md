@@ -16,7 +16,8 @@ flowchart LR
 
 - `frontend/dist` is static and globally cached by Vercel.
 - `api/index.py` exposes the FastAPI application as one Fluid Compute function.
-- The function parses Markdown/DOCX/text-based PDF bytes in memory and creates no upload file.
+- The function parses Markdown/DOCX bytes in memory and creates no upload file. PDF text extraction and candidate-page rendering happen in the browser, so raw PDF bytes do not reach Vercel.
+- Up to four candidate page images receive one multimodal analysis call. Validated nodes and edges are converted to Mermaid deterministically and reused by all six reviewers.
 - Six dimension tasks run concurrently. Each model output is validated independently.
 - Report aggregation, weighting, issue IDs, and recommendation thresholds are deterministic Python logic.
 - The browser keeps the report, local issue status, and chat history in memory. API format, Base URL, model, preset, and API Key are persisted in plaintext `localStorage` by explicit product design.

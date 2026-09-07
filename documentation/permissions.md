@@ -2,7 +2,7 @@
 
 | Actor | Can access | Cannot access by design |
 | --- | --- | --- |
-| Browser page | Selected local file bytes, locally persisted model configuration, in-memory report/chat | Other local files, secrets from other origins, another user's data |
+| Browser page | Selected local file bytes, browser-extracted PDF text/candidate page renders, locally persisted model configuration, in-memory report/chat | Other local files, secrets from other origins, another user's data |
 | Vercel Function | Current request body, configured public HTTPS endpoint, and model response for the request lifetime | Durable user state, database, private-network endpoints |
 | Configured model endpoint | Prompt content required for the current review/chat and the account Key | Browser state outside the submitted request |
 | Repository/deployer | Source and deployment configuration | A built-in production model Key, because none is configured |

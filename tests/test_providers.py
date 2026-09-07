@@ -55,6 +55,33 @@ class BaseURLSecurityTests(unittest.IsolatedAsyncioTestCase):
 
 
 class APIFormatRequestTests(unittest.IsolatedAsyncioTestCase):
+    async def test_multimodal_image_blocks_match_each_format(self):
+        captured = {}
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            captured[str(request.url)] = json.loads(request.content)
+            if request.url.path.endswith("/responses"):
+                return httpx.Response(200, json={"output_text": "OK"})
+            if request.url.path.endswith("/messages"):
+                return httpx.Response(200, json={"content": [{"type": "text", "text": "OK"}]})
+            return httpx.Response(200, json={"choices": [{"message": {"content": "OK"}}]})
+
+        image = [{"mime_type": "image/jpeg", "data": "ZmFrZQ=="}]
+        for api_format, base_url in [
+            ("openai_chat", "https://api.example.com/v1"),
+            ("openai_responses", "https://api.example.com/v1"),
+            ("anthropic_messages", "https://api.example.com"),
+        ]:
+            credentials = ProviderCredentials(api_format=api_format, base_url=base_url, api_key="key", model="vision-model")
+            await LLMClient(credentials, transport=httpx.MockTransport(handler), resolver=public_resolver).complete(system="s", user="u", images=image)
+
+        chat = captured["https://api.example.com/v1/chat/completions"]
+        responses = captured["https://api.example.com/v1/responses"]
+        anthropic = captured["https://api.example.com/v1/messages"]
+        self.assertEqual(chat["messages"][1]["content"][1]["type"], "image_url")
+        self.assertEqual(responses["input"][0]["content"][1]["type"], "input_image")
+        self.assertEqual(anthropic["messages"][0]["content"][1]["type"], "image")
+
     async def test_openai_chat_contract(self):
         captured = {}
 

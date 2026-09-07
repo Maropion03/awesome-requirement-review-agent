@@ -12,7 +12,7 @@ class FakeConcurrentClient:
         self.max_active = 0
         self.fail_dimension = fail_dimension
 
-    async def complete(self, *, system, user, max_tokens=2200):
+    async def complete(self, *, system, user, max_tokens=2200, images=None):
         self.active += 1
         self.max_active = max(self.max_active, self.active)
         await asyncio.sleep(0.01)
@@ -60,6 +60,42 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(report["status"], "degraded_complete")
         self.assertEqual(report["degraded_dimensions"][0]["dimension"], "技术可行性")
         self.assertNotIn("upstream response leaked", json.dumps(report, ensure_ascii=False))
+
+    async def test_diagram_pages_are_analyzed_once_and_reused_as_mermaid(self):
+        class DiagramClient(FakeConcurrentClient):
+            def __init__(self):
+                super().__init__()
+                self.vision_calls = 0
+                self.review_prompts = []
+
+            async def complete(self, *, system, user, max_tokens=2200, images=None):
+                if images:
+                    self.vision_calls += 1
+                    return json.dumps({"diagrams": [{
+                        "page": 6,
+                        "title": "上架审批",
+                        "nodes": ["提交申请", "管理员审批", "发布"],
+                        "edges": [{"source": 0, "target": 1, "label": "提交"}, {"source": 1, "target": 2, "label": "同意"}],
+                        "confidence": 0.9,
+                        "unresolved_labels": [],
+                    }]}, ensure_ascii=False)
+                self.review_prompts.append(user)
+                return await super().complete(system=system, user=user, max_tokens=max_tokens)
+
+        client = DiagramClient()
+        credentials = ProviderCredentials(api_format="openai_chat", base_url="https://api.example.com/v1", api_key="key", model="vision-model")
+        events = [json.loads(chunk) async for chunk in stream_review(
+            credentials=credentials,
+            prd_text="# Demo PRD\n提交后显示成功，并需要定义完整的业务目标。",
+            preset="normal",
+            client=client,
+            diagram_images=[{"page": 6, "mime_type": "image/jpeg", "data": "ZmFrZQ=="}],
+        )]
+        report = next(event["report"] for event in events if event["event"] == "complete")
+        self.assertEqual(client.vision_calls, 1)
+        self.assertEqual(report["diagram_analysis"]["status"], "completed")
+        self.assertIn("flowchart TD", report["diagram_analysis"]["mermaid"])
+        self.assertTrue(all("视觉流程图识别" in prompt for prompt in client.review_prompts))
 
     async def test_closing_stream_cancels_outstanding_provider_calls(self):
         class BlockingClient:

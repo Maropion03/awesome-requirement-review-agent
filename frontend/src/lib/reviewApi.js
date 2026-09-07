@@ -92,6 +92,7 @@ function dispatchReviewEvent(payload, callbacks) {
 export async function startReviewStream({
   apiBaseUrl = DEFAULT_API_BASE_URL,
   file,
+  preparedDocument = null,
   apiFormat,
   endpointBaseUrl,
   apiKey,
@@ -107,7 +108,15 @@ export async function startReviewStream({
   onError,
 }) {
   const body = new FormData()
-  body.append('file', file)
+  if (preparedDocument) {
+    body.append('document_text', preparedDocument.documentText)
+    body.append('document_name', file.name)
+    for (const diagram of preparedDocument.diagramPages) {
+      body.append('diagram_images', diagram.blob, `page-${diagram.pageNumber}.jpg`)
+    }
+  } else {
+    body.append('file', file)
+  }
   body.append('api_format', apiFormat)
   body.append('base_url', endpointBaseUrl)
   body.append('api_key', apiKey)
