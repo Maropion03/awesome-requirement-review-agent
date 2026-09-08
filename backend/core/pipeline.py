@@ -259,9 +259,11 @@ def build_report(
 async def stream_review(
     *,
     credentials: ProviderCredentials,
+    vision_credentials: ProviderCredentials | None = None,
     prd_text: str,
     preset: str,
     client: LLMClient | None = None,
+    vision_client: LLMClient | None = None,
     diagram_images: list[dict[str, object]] | None = None,
 ) -> AsyncIterator[bytes]:
     if preset not in PRESET_WEIGHTS:
@@ -269,12 +271,14 @@ async def stream_review(
         return
 
     llm = client or LLMClient(credentials)
-    yield _event("connected", api_format=credentials.api_format, model=credentials.model)
+    vision_model = (vision_credentials or credentials).model
+    diagram_llm = vision_client or (LLMClient(vision_credentials) if vision_credentials else llm)
+    yield _event("connected", api_format=credentials.api_format, model=credentials.model, vision_model=vision_model)
     diagram_status = {"status": "not_requested", "count": 0, "warning": "", "mermaid": ""}
     if diagram_images:
-        yield _event("streaming", content=f"正在识别 {len(diagram_images)} 个流程图候选页面并生成 Mermaid。")
+        yield _event("streaming", content=f"正在使用视觉模型 {vision_model} 识别 {len(diagram_images)} 个流程图候选页面并生成 Mermaid。")
         try:
-            diagram_analysis = await analyze_diagram_pages(llm, diagram_images)
+            diagram_analysis = await analyze_diagram_pages(diagram_llm, diagram_images)
             mermaid = diagrams_to_mermaid(diagram_analysis)
             if mermaid:
                 prd_text += "\n\n## 视觉流程图识别（AI 生成，需结合原图核对）\n\n" + mermaid

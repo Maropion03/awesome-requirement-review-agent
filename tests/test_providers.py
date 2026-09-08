@@ -148,6 +148,15 @@ class APIFormatRequestTests(unittest.IsolatedAsyncioTestCase):
             await LLMClient(credentials, transport=httpx.MockTransport(auth_handler), resolver=public_resolver).complete(system="s", user="u")
         self.assertNotIn("private-key", str(context.exception))
 
+    async def test_bad_request_exposes_only_a_short_safe_provider_message(self):
+        async def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(400, json={"error": {"message": "This model only supports text input; key=private-key"}})
+
+        credentials = ProviderCredentials(api_format="openai_chat", base_url="https://api.example.com/v1", api_key="private-key", model="text-model")
+        with self.assertRaisesRegex(ProviderError, "only supports text input") as context:
+            await LLMClient(credentials, transport=httpx.MockTransport(handler), resolver=public_resolver).complete(system="s", user="u")
+        self.assertNotIn("private-key", str(context.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

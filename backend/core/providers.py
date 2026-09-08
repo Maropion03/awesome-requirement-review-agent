@@ -124,7 +124,32 @@ async def validate_public_base_url(
         raise ProviderError("Base URL 不能解析到本机或内网地址")
 
 
-def _safe_error(status_code: int) -> ProviderError:
+def _extract_safe_error_detail(response: httpx.Response, *, api_key: str) -> str:
+    try:
+        payload = response.json()
+    except ValueError:
+        return ""
+
+    candidates: list[Any] = []
+    if isinstance(payload, dict):
+        candidates.extend([payload.get("message"), payload.get("detail")])
+        error = payload.get("error")
+        if isinstance(error, dict):
+            candidates.extend([error.get("message"), error.get("detail")])
+        elif isinstance(error, str):
+            candidates.append(error)
+
+    for candidate in candidates:
+        if not isinstance(candidate, str):
+            continue
+        detail = " ".join(candidate.split())[:240]
+        if detail:
+            return detail.replace(api_key, "[已隐藏]")
+    return ""
+
+
+def _safe_error(response: httpx.Response, *, api_key: str) -> ProviderError:
+    status_code = response.status_code
     if status_code in {401, 403}:
         return ProviderError("API Key 无效或没有所选模型的访问权限")
     if status_code == 402:
@@ -137,7 +162,9 @@ def _safe_error(status_code: int) -> ProviderError:
         return ProviderError("Base URL 返回重定向，已拒绝继续发送 API Key")
     if status_code >= 500:
         return ProviderError("模型服务暂时不可用，请稍后重试")
-    return ProviderError(f"模型服务拒绝了请求（HTTP {status_code}）")
+    detail = _extract_safe_error_detail(response, api_key=api_key)
+    suffix = f"：{detail}" if detail else ""
+    return ProviderError(f"模型服务拒绝了请求（HTTP {status_code}）{suffix}")
 
 
 def _join_text_blocks(blocks: Any, *, text_type: str) -> str:
@@ -231,7 +258,7 @@ class LLMClient:
         ) as client:
             response = await client.post(url, headers=headers, json=payload)
         if not response.is_success:
-            raise _safe_error(response.status_code)
+            raise _safe_error(response, api_key=api_key)
 
         try:
             data = response.json()

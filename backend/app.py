@@ -71,10 +71,17 @@ async def run_review(
     base_url: str = Form(...),
     api_key: str = Form(...),
     model: str = Form(...),
+    vision_model: str | None = Form(None),
     preset: str = Form("normal"),
 ) -> StreamingResponse:
     try:
         credentials = ProviderCredentials(api_format=api_format, base_url=base_url, api_key=api_key, model=model)
+        vision_credentials = ProviderCredentials(
+            api_format=api_format,
+            base_url=base_url,
+            api_key=api_key,
+            model=(vision_model or model),
+        )
         get_api_format(credentials.api_format)
     except (ValidationError, ProviderError) as error:
         raise HTTPException(status_code=422, detail=str(error)) from None
@@ -120,6 +127,7 @@ async def run_review(
     return StreamingResponse(
         stream_review(
             credentials=credentials,
+            vision_credentials=vision_credentials,
             prd_text=prd_text,
             preset=preset,
             diagram_images=prepared_images,

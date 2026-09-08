@@ -89,7 +89,7 @@ import WorkbenchPage from './components/pages/WorkbenchPage.vue'
 import ReportPage from './components/pages/ReportPage.vue'
 import AssistantPage from './components/pages/AssistantPage.vue'
 import SettingsPage from './components/pages/SettingsPage.vue'
-import { clearApiConfig, loadApiConfig, saveApiConfig } from './lib/apiConfigStorage.js'
+import { clearApiConfig, loadApiConfig, resolveVisionModel, saveApiConfig } from './lib/apiConfigStorage.js'
 import { createAgentStages, applyDimensionEvent, applyStreamingMessage, completeReporterStage } from './lib/agentStages.js'
 import { buildAssistantSnapshot, createAssistantState, findIssueById, normalizeChatResponse } from './lib/assistantPanel.js'
 import { sendChatMessage } from './lib/chatApi.js'
@@ -122,6 +122,7 @@ const defaultApiConfig = {
   baseUrl: API_FORMAT_FALLBACKS[0].default_base_url,
   apiKey: '',
   model: API_FORMAT_FALLBACKS[0].default_model,
+  visionModel: '',
   preset: 'normal',
 }
 const browserStorage = typeof window !== 'undefined' ? window.localStorage : null
@@ -154,6 +155,7 @@ const formatLabel = computed(() => {
   const format = formats.value.find((item) => item.id === apiConfig.value.apiFormat)
   return `${format?.name || apiConfig.value.apiFormat} · ${apiConfig.value.model}`
 })
+const effectiveVisionModel = computed(() => resolveVisionModel(apiConfig.value))
 const selectedIssueId = computed(() => getIssueIdentifier(selectedIssue.value) || '')
 const assistantSnapshot = computed(() => buildAssistantSnapshot({ report: report.value, runState: runState.value, selectedIssue: selectedIssue.value }))
 
@@ -289,6 +291,9 @@ async function startReviewFlow() {
       const { preparePdfForReview } = await import('./lib/pdfClientParser.js')
       preparedDocument = await preparePdfForReview(selectedFile.value)
       appendStreamLine(`PDF 已提取 ${preparedDocument.pageCount} 页，发现 ${preparedDocument.diagramPages.length} 个视觉候选页面。`)
+      if (preparedDocument.diagramPages.length && effectiveVisionModel.value !== apiConfig.value.model.trim()) {
+        appendStreamLine(`流程图将由视觉模型 ${effectiveVisionModel.value} 识别；正文继续使用 ${apiConfig.value.model.trim()}。`)
+      }
     }
     await startReviewStream({
       file: selectedFile.value,
@@ -297,6 +302,7 @@ async function startReviewFlow() {
       endpointBaseUrl: apiConfig.value.baseUrl,
       apiKey: apiConfig.value.apiKey,
       model: apiConfig.value.model,
+      visionModel: effectiveVisionModel.value,
       preset: apiConfig.value.preset,
       signal: reviewController.signal,
       onConnected: () => appendStreamLine(`已连接 ${formatLabel.value}`),

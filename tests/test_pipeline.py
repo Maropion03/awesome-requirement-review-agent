@@ -82,20 +82,27 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
                 self.review_prompts.append(user)
                 return await super().complete(system=system, user=user, max_tokens=max_tokens)
 
-        client = DiagramClient()
-        credentials = ProviderCredentials(api_format="openai_chat", base_url="https://api.example.com/v1", api_key="key", model="vision-model")
+        review_client = DiagramClient()
+        vision_client = DiagramClient()
+        credentials = ProviderCredentials(api_format="openai_chat", base_url="https://api.example.com/v1", api_key="key", model="review-model")
+        vision_credentials = ProviderCredentials(api_format="openai_chat", base_url="https://api.example.com/v1", api_key="key", model="vision-model")
         events = [json.loads(chunk) async for chunk in stream_review(
             credentials=credentials,
+            vision_credentials=vision_credentials,
             prd_text="# Demo PRD\n提交后显示成功，并需要定义完整的业务目标。",
             preset="normal",
-            client=client,
+            client=review_client,
+            vision_client=vision_client,
             diagram_images=[{"page": 6, "mime_type": "image/jpeg", "data": "ZmFrZQ=="}],
         )]
         report = next(event["report"] for event in events if event["event"] == "complete")
-        self.assertEqual(client.vision_calls, 1)
+        connected = next(event for event in events if event["event"] == "connected")
+        self.assertEqual(connected["vision_model"], "vision-model")
+        self.assertEqual(vision_client.vision_calls, 1)
+        self.assertEqual(review_client.vision_calls, 0)
         self.assertEqual(report["diagram_analysis"]["status"], "completed")
         self.assertIn("flowchart TD", report["diagram_analysis"]["mermaid"])
-        self.assertTrue(all("视觉流程图识别" in prompt for prompt in client.review_prompts))
+        self.assertTrue(all("视觉流程图识别" in prompt for prompt in review_client.review_prompts))
 
     async def test_closing_stream_cancels_outstanding_provider_calls(self):
         class BlockingClient:

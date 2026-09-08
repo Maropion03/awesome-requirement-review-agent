@@ -5,6 +5,7 @@ import {
   API_CONFIG_STORAGE_KEY,
   clearApiConfig,
   loadApiConfig,
+  resolveVisionModel,
   saveApiConfig,
 } from '../src/lib/apiConfigStorage.js'
 
@@ -17,11 +18,11 @@ function createStorage(initial = {}) {
   }
 }
 
-const fallback = { apiFormat: 'openai_chat', baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-5.2', preset: 'normal' }
+const fallback = { apiFormat: 'openai_chat', baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-5.2', visionModel: '', preset: 'normal' }
 
 test('API configuration survives a browser reload', () => {
   const storage = createStorage()
-  const config = { apiFormat: 'openai_responses', baseUrl: 'https://api.example.com/v1', apiKey: 'sk-example', model: 'gpt-5', preset: 'innovation' }
+  const config = { apiFormat: 'openai_responses', baseUrl: 'https://api.example.com/v1', apiKey: 'sk-example', model: 'gpt-5', visionModel: 'gpt-5-mini', preset: 'innovation' }
 
   assert.equal(saveApiConfig(config, { storage }), true)
   assert.deepEqual(loadApiConfig({ storage, fallback }), config)
@@ -36,8 +37,15 @@ test('legacy provider configuration migrates to an API format and original offic
     baseUrl: 'https://api.deepseek.com',
     apiKey: 'legacy-key',
     model: 'deepseek-chat',
+    visionModel: '',
     preset: 'normal',
   })
+})
+
+test('GLM-5.3 on the official endpoint gets a vision-capable default without overriding explicit configuration', () => {
+  assert.equal(resolveVisionModel({ baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.3', visionModel: '' }), 'glm-4.6v-flash')
+  assert.equal(resolveVisionModel({ baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.3', visionModel: 'glm-4.6v' }), 'glm-4.6v')
+  assert.equal(resolveVisionModel({ baseUrl: 'https://proxy.example.com/v1', model: 'glm-5.3', visionModel: '' }), 'glm-5.3')
 })
 
 test('invalid stored data falls back safely and can be cleared', () => {

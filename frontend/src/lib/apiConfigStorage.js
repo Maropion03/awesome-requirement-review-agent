@@ -16,8 +16,23 @@ export function normalizeApiConfig(value = {}, fallback = {}) {
     baseUrl: String(value.baseUrl || legacy.baseUrl || fallback.baseUrl || 'https://api.openai.com/v1'),
     apiKey: String(value.apiKey || fallback.apiKey || ''),
     model: String(value.model || fallback.model || ''),
+    visionModel: String(value.visionModel || fallback.visionModel || ''),
     preset: String(value.preset || fallback.preset || 'normal'),
   }
+}
+
+export function resolveVisionModel(config = {}) {
+  const explicitModel = String(config.visionModel || '').trim()
+  if (explicitModel) return explicitModel
+
+  const reviewModel = String(config.model || '').trim()
+  try {
+    const hostname = new URL(String(config.baseUrl || '')).hostname.toLowerCase()
+    if (hostname === 'open.bigmodel.cn' && /^glm-5\.3(?:-|$)/i.test(reviewModel)) return 'glm-4.6v-flash'
+  } catch {
+    // Invalid URLs are handled by the API validation flow.
+  }
+  return reviewModel
 }
 
 export function loadApiConfig({ storage, fallback = {} } = {}) {

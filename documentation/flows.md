@@ -14,13 +14,13 @@ sequenceDiagram
     B->>V: POST text or document + optional candidate JPEGs
     V->>V: Validate format, public Base URL, key shape, type, size; parse in memory
     opt Diagram candidates exist
-      V->>M: One multimodal graph extraction
+      V->>M: One graph extraction with the configured vision model
       M-->>V: Nodes, edges, confidence
       V->>V: Validate and generate Mermaid
     end
     V-->>B: connected + six dimension_start events
     par Six concurrent dimensions
-      V->>M: Review dimension with untrusted PRD
+      V->>M: Review dimension with the configured review model and untrusted PRD
       M-->>V: JSON candidate
     end
     V->>V: Validate/repair; deterministically aggregate

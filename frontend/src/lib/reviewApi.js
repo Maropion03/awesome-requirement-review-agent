@@ -97,6 +97,7 @@ export async function startReviewStream({
   endpointBaseUrl,
   apiKey,
   model,
+  visionModel,
   preset,
   signal,
   fetchImpl = fetch,
@@ -121,6 +122,7 @@ export async function startReviewStream({
   body.append('base_url', endpointBaseUrl)
   body.append('api_key', apiKey)
   body.append('model', model)
+  body.append('vision_model', visionModel || model)
   body.append('preset', preset)
 
   const response = await fetchImpl(createApiUrl(apiBaseUrl, '/review/run'), {

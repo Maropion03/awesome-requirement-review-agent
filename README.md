@@ -28,7 +28,7 @@ An open-source PRD review workbench for product teams. Bring your own model API 
 - Migrated from the retired Railway deployment to Vercel.
 - Replaced the embedded/server-owned MiniMax setup with BYOK.
 - Supports OpenAI Chat Completions, OpenAI Responses, and Anthropic Messages request formats.
-- Persists API format, Base URL, model, preset, and key in this browser.
+- Persists API format, Base URL, review model, vision model, preset, and key in this browser.
 - Accepts user-owned public HTTPS endpoints with server-side SSRF checks and redirect blocking.
 - Replaced process-local uploads, background jobs, sessions, SSE reconnects, and shares with one streaming request.
 - Runs all six reviewers concurrently and produces a deterministic aggregate report.
@@ -37,7 +37,7 @@ An open-source PRD review workbench for product teams. Bring your own model API 
 
 ## API key handling
 
-The API format, Base URL, model, preset, and key are stored as plaintext in this browser's `localStorage` so the configuration survives refreshes and browser restarts. Each validation, review, or chat request sends the key through the Vercel Function to the configured endpoint. The app does not write keys to cookies, a server-side database, files, analytics, or logs. Use **Clear local configuration** on shared devices or clear the site's browser data.
+The API format, Base URL, review model, vision model, preset, and key are stored as plaintext in this browser's `localStorage` so the configuration survives refreshes and browser restarts. Each validation, review, or chat request sends the key through the Vercel Function to the configured endpoint. The app does not write keys to cookies, a server-side database, files, analytics, or logs. Use **Clear local configuration** on shared devices or clear the site's browser data.
 
 Browser storage is a convenience/security tradeoff: scripts running on this origin can read the stored key. The key also transits the serverless function, so the Vercel deployment operator must still be trusted. Self-host if the PRD or key cannot pass through a third-party deployment.
 
@@ -49,7 +49,7 @@ Browser storage is a convenience/security tradeoff: scripts running on this orig
 | OpenAI Responses | `/responses` | `https://api.openai.com/v1` |
 | Anthropic Messages | `/v1/messages` | `https://api.anthropic.com` |
 
-Model catalogs change. The model field is editable so users can choose another model available to their account.
+Model catalogs change, so the review and PDF-diagram vision model fields are editable. A blank vision model reuses the review model. Existing GLM-5.3 configurations on Zhipu's official endpoint use `glm-4.6v-flash` for diagrams because GLM-5.3 accepts text input only; an explicit vision model overrides this default.
 
 ## Local development
 
@@ -99,7 +99,7 @@ The repository includes [`vercel.json`](./vercel.json). Production needs no secr
 | POST | `/api/review/run` | Multipart document + BYOK config; returns NDJSON progress and report |
 | POST | `/api/review/chat` | Stateless report follow-up |
 
-Uploads are capped at 3.5MB. PDF text is extracted in the browser; up to four image-heavy pages are rendered as compressed diagram candidates, so raw PDF bytes do not cross the Vercel Firewall. A multimodal model is called once to produce validated graph data and deterministic Mermaid, then the result is reused by all six reviewers. Vision failure degrades to text-only review. Extracted text is capped at 80,000 characters; scanned PDFs still require OCR.
+Uploads are capped at 3.5MB. PDF text is extracted in the browser; up to four image-heavy pages are rendered as compressed diagram candidates, so raw PDF bytes do not cross the Vercel Firewall. The separately configurable vision model is called once to produce validated graph data and deterministic Mermaid, then the result is reused by all six review-model calls. Vision failure degrades to text-only review and shows a sanitized upstream reason. Extracted text is capped at 80,000 characters; scanned PDFs still require OCR.
 
 ## Repository layout
 

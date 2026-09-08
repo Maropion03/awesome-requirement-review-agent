@@ -10,7 +10,7 @@ Avoid Vercel's false-positive rejection of raw PDF multipart bodies while preser
 2. Extract and clean text page by page in the browser.
 3. Count image paint operations and render up to four image-heavy candidate pages as compressed JPEGs.
 4. Send extracted text and candidate JPEGs to Vercel; never send the original PDF bytes.
-5. Make one multimodal call using the configured API format.
+5. Make one multimodal call using the configured API format and optional separate vision model.
 6. Require structured nodes, indexed edges, page number, confidence, and unresolved labels.
 7. Generate Mermaid deterministically in Python and append it to the text context shared by all six reviewers.
 8. Return diagram status and Mermaid source in the report. If vision fails or the model lacks image support, continue a text-only review with a visible stream warning.
@@ -20,6 +20,7 @@ Avoid Vercel's false-positive rejection of raw PDF multipart bodies while preser
 - Maximum four candidate pages.
 - JPEG or PNG only, maximum 700KB per candidate page.
 - Mermaid is derived evidence and must be checked against the original page.
+- A blank vision model reuses the review model. For the official Zhipu endpoint, a GLM-5.3 review configuration defaults diagram recognition to `glm-4.6v-flash` because GLM-5.3 only supports text.
 - Ordinary UI screenshots are excluded by the vision prompt.
 - Scanned PDFs without an extractable text layer remain unsupported unless OCR is added separately.
 

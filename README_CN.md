@@ -28,7 +28,7 @@
 - 从已经失效的 Railway 部署迁移到 Vercel。
 - 删除服务端内置的 MiniMax 配置，改成用户自带 API Key。
 - 支持 OpenAI Chat Completions、OpenAI Responses、Anthropic Messages 三种接口格式。
-- 在当前浏览器持久化接口格式、Base URL、模型、预设和 Key。
+- 在当前浏览器持久化接口格式、Base URL、正文模型、视觉模型、预设和 Key。
 - 允许用户填写公网 HTTPS 端点，服务端执行 SSRF 校验并拒绝重定向。
 - 用一次流式请求替代上传落盘、后台任务、内存 Session、SSE 重连和服务端分享。
 - 六个 Reviewer 真正并行；报告由本地确定性逻辑汇总。
@@ -37,7 +37,7 @@
 
 ## API Key 如何处理
 
-接口格式、Base URL、模型、预设和 Key 会以明文写入当前浏览器的 `localStorage`，刷新页面或重启浏览器后仍然保留。测试连接、评审、追问时，Key 会经过 Vercel Function 转发到配置的模型端点。项目不会把 Key 写入 Cookie、服务端数据库、文件、分析工具或日志。在公共或共享设备上应使用“清除本地配置”，或清除该站点的浏览器数据。
+接口格式、Base URL、正文模型、视觉模型、预设和 Key 会以明文写入当前浏览器的 `localStorage`，刷新页面或重启浏览器后仍然保留。测试连接、评审、追问时，Key 会经过 Vercel Function 转发到配置的模型端点。项目不会把 Key 写入 Cookie、服务端数据库、文件、分析工具或日志。在公共或共享设备上应使用“清除本地配置”，或清除该站点的浏览器数据。
 
 浏览器持久化是便利性与安全性的取舍：同源页面脚本可以读取已保存的 Key。同时，Key 会经过服务端函数，因此仍然要求用户信任 Vercel 部署者。如果 PRD 或 Key 不允许经过第三方部署，应自行部署该仓库。
 
@@ -49,7 +49,7 @@
 | OpenAI Responses | `/responses` | `https://api.openai.com/v1` |
 | Anthropic Messages | `/v1/messages` | `https://api.anthropic.com` |
 
-模型目录会变化，因此前端允许用户填写自己账号实际可用的模型名。
+模型目录会变化，因此前端允许用户分别填写正文评审模型和 PDF 流程图视觉模型。视觉模型留空时复用正文模型；智谱官方端点上的 GLM-5.3 旧配置会使用 `glm-4.6v-flash` 识别流程图，因为 GLM-5.3 只支持文本输入。用户可以显式填写其他视觉模型覆盖该默认值。
 
 ## 本地运行
 
@@ -99,7 +99,7 @@ vercel --prod
 | POST | `/api/review/run` | 文档 + BYOK 配置，返回 NDJSON 进度和报告 |
 | POST | `/api/review/chat` | 携带报告上下文的无状态追问 |
 
-上传上限为 3.5MB。PDF 正文在浏览器中提取，最多选择 4 个图片密集页面压缩为流程图候选，因此原始 PDF 字节不会经过 Vercel Firewall。多模态模型只调用一次，先输出受校验的节点和连线，再由代码确定性生成 Mermaid，供六个 Reviewer 复用；视觉调用失败时降级为纯文本评审。正文上限为 8 万字符，扫描件仍需先完成 OCR。
+上传上限为 3.5MB。PDF 正文在浏览器中提取，最多选择 4 个图片密集页面压缩为流程图候选，因此原始 PDF 字节不会经过 Vercel Firewall。独立视觉模型只调用一次，先输出受校验的节点和连线，再由代码确定性生成 Mermaid，供正文模型驱动的六个 Reviewer 复用；视觉调用失败时降级为纯文本评审，并展示经过脱敏的上游错误原因。正文上限为 8 万字符，扫描件仍需先完成 OCR。
 
 ## 目录
 

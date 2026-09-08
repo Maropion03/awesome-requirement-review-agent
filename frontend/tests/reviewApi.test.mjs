@@ -90,12 +90,14 @@ test('prepared PDFs send extracted text and diagram pages without raw PDF bytes'
       pageCount: 2,
       diagramPages: [{ pageNumber: 2, blob: new Blob(['jpeg-data'], { type: 'image/jpeg' }) }],
     },
-    apiFormat: 'openai_chat', endpointBaseUrl: 'https://api.example.com/v1', apiKey: 'key', model: 'vision-model', preset: 'normal',
+    apiFormat: 'openai_chat', endpointBaseUrl: 'https://api.example.com/v1', apiKey: 'key', model: 'review-model', visionModel: 'vision-model', preset: 'normal',
     fetchImpl: async (url, options) => { requestBody = options.body; return { ok: true, body } },
   })
   assert.equal(requestBody.get('file'), null)
   assert.match(requestBody.get('document_text'), /Extracted PRD text/)
   assert.equal(requestBody.getAll('diagram_images').length, 1)
+  assert.equal(requestBody.get('model'), 'review-model')
+  assert.equal(requestBody.get('vision_model'), 'vision-model')
 })
 
 test('mapReportToViewModel preserves a 0-100 total and dimension evidence', () => {

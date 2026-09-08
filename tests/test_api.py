@@ -45,6 +45,25 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(events[-1]["event"], "complete")
         self.assertNotIn("private-key", response.text)
 
+    def test_review_accepts_a_separate_vision_model(self):
+        with patch("backend.core.pipeline.LLMClient", FakeClient):
+            response = self.client.post(
+                "/api/review/run",
+                files={"file": ("demo.md", b"# Demo PRD\nA sufficiently detailed product requirement document.", "text/markdown")},
+                data={
+                    "api_format": "openai_chat",
+                    "base_url": "https://api.example.com/v1",
+                    "api_key": "private-key",
+                    "model": "review-model",
+                    "vision_model": "vision-model",
+                    "preset": "normal",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        connected = json.loads(response.text.splitlines()[0])
+        self.assertEqual(connected["model"], "review-model")
+        self.assertEqual(connected["vision_model"], "vision-model")
+
     def test_bad_file_and_bad_key_fail_before_streaming(self):
         response = self.client.post(
             "/api/review/run",
