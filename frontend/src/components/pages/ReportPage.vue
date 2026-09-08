@@ -48,7 +48,9 @@ defineEmits(['issue-select', 'issue-status-change', 'export-suggestions', 'open-
 const projectName = computed(() => props.report.rawReport?.project_name || '')
 const reportMeta = computed(() => {
   const raw = props.report.rawReport || {}
-  return `${raw.version || 'v1.0'} · ${raw.review_date || '本次评审'} · ${raw.preset || 'normal'} 模式 · ${props.report.issues?.length || 0} 个问题`
+  const contextCount = Number(raw.product_context?.source_count || 0)
+  const contextMeta = contextCount ? ` · ${contextCount} 类 Context` : ' · PRD-only'
+  return `${raw.version || 'v1.0'} · ${raw.review_date || '本次评审'} · ${raw.preset || 'normal'} 模式${contextMeta} · ${props.report.issues?.length || 0} 个问题`
 })
 </script>
 

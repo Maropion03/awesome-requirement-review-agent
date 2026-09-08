@@ -8,7 +8,7 @@ The application lets a user review a PRD with their own model account. The deplo
 
 ```mermaid
 flowchart LR
-    B["Browser · Vue SPA"] -->|"document + format + Base URL + review/vision models + API Key"| V["Vercel FastAPI Function"]
+    B["Browser · Vue SPA"] -->|"document + optional Product Context + BYOK config"| V["Vercel FastAPI Function"]
     V -->|"validated public HTTPS endpoint"| P["Configured model API"]
     P -->|"model response"| V
     V -->|"NDJSON progress + report"| B
@@ -19,16 +19,18 @@ flowchart LR
 - The function parses Markdown/DOCX bytes in memory and creates no upload file. PDF text extraction and candidate-page rendering happen in the browser, so raw PDF bytes do not reach Vercel.
 - Up to four candidate page images receive one call through a separately configurable vision model. Validated nodes and edges are converted to Mermaid deterministically and reused by all six review-model calls.
 - Six dimension tasks run concurrently. Each model output is validated independently.
+- An optional five-source Product Context Pack is validated, serialized as a distinct untrusted JSON block, and shared by all six reviewers. It is never merged into the PRD evidence namespace.
 - Report aggregation, weighting, issue IDs, and recommendation thresholds are deterministic Python logic.
-- The browser keeps the report, local issue status, and chat history in memory. API format, Base URL, review model, vision model, preset, and API Key are persisted in plaintext `localStorage` by explicit product design.
+- The browser keeps the report, local issue status, and chat history in memory. API format, Base URL, review model, vision model, preset, API Key, and Product Context are persisted in plaintext `localStorage` by explicit product design.
 
 ## Trust boundaries
 
 1. The PRD and Key leave the browser and transit the Vercel Function.
 2. The function resolves the configured host, rejects non-public addresses, and sends them only to a public HTTPS 443 endpoint without following redirects.
 3. The Key is opaque, never interpolated into URLs, never returned, and never included in an error.
-4. PRD content is marked as untrusted data in model system prompts. The model receives no tools.
-5. A self-hosted deployment is required when a user cannot trust the Vercel deployment operator.
+4. PRD and Product Context content are marked as untrusted data in model system prompts. The model receives no tools.
+5. Quoted evidence is checked against its declared source (`prd` or one of five context IDs); unverifiable quotes are removed.
+6. A self-hosted deployment is required when a user cannot trust the Vercel deployment operator.
 
 ## State and storage
 

@@ -55,7 +55,7 @@
             <div class="issue-meta"><span>{{ issue.displayId }}</span><span>{{ issue.dimension }}</span><span v-if="issue.sourceSection || issue.sourceLocator">{{ issue.sourceSection || issue.sourceLocator }}</span></div>
             <h3>{{ issue.title }}</h3>
             <p>{{ issue.description }}</p>
-            <blockquote v-if="issue.sourceQuote"><strong>原文依据</strong>“{{ issue.sourceQuote }}”</blockquote>
+            <blockquote v-if="issue.sourceQuote"><strong>{{ evidenceLabel(issue) }}</strong>“{{ issue.sourceQuote }}”</blockquote>
             <div class="suggestion"><strong>建议修改</strong><p>{{ issue.suggestion }}</p></div>
           </div>
           <aside class="issue-side">
@@ -92,7 +92,9 @@ const dimensionCards = computed(() => props.report.dimensionScores || [])
 const issues = computed(() => props.report.issues || [])
 const severityCounts = computed(() => ['HIGH', 'MEDIUM', 'LOW'].map((severity) => ({ severity, label: severity, count: issues.value.filter((issue) => issue.severity === severity).length })))
 const glyphs = { 需求完整性: '▣', 需求合理性: '⌁', 用户价值: '↗', 技术可行性: '⚙', 实现风险: '△', 优先级一致性: '◎' }
+const contextLabels = { product_overview: '产品概览', business_goals: '业务目标', target_users: '目标用户', success_metrics: '成功指标', decisions_constraints: '历史决策与约束' }
 function dimensionGlyph(name) { return glyphs[name] || '◆' }
+function evidenceLabel(issue) { return issue.sourceType === 'context' ? `产品 Context · ${contextLabels[issue.sourceId] || issue.sourceId || '背景资料'}` : 'PRD 原文依据' }
 function issueIdentifier(issue) { return getIssueIdentifier(issue) || issue?.id || '' }
 function readIssueStatus(issue) { return getIssueStatus(props.issueState, issue) }
 function updateStatus(issue, status) { emit('issue-status-change', { issue, issueId: issueIdentifier(issue), status }) }

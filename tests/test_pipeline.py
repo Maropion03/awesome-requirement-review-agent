@@ -2,7 +2,7 @@ import asyncio
 import json
 import unittest
 
-from backend.core.models import ProviderCredentials
+from backend.core.models import ProductContext, ProviderCredentials
 from backend.core.pipeline import PRESET_WEIGHTS, build_report, review_dimension, stream_review
 
 
@@ -104,6 +104,46 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("flowchart TD", report["diagram_analysis"]["mermaid"])
         self.assertTrue(all("视觉流程图识别" in prompt for prompt in review_client.review_prompts))
 
+    async def test_product_context_is_injected_once_per_reviewer_with_verified_provenance(self):
+        class ContextClient(FakeConcurrentClient):
+            def __init__(self):
+                super().__init__()
+                self.prompts = []
+
+            async def complete(self, *, system, user, max_tokens=2200, images=None):
+                self.prompts.append(user)
+                return json.dumps({
+                    "score": 7,
+                    "issues": [{
+                        "severity": "MEDIUM",
+                        "title": "目标不一致",
+                        "location": "目标",
+                        "description": "当前方案未对应业务目标",
+                        "suggestion": "补充目标映射",
+                        "source_quote": "提升一次解决率",
+                        "source_type": "context",
+                        "source_id": "business_goals",
+                    }],
+                    "reasoning": "需要结合产品目标",
+                }, ensure_ascii=False)
+
+        client = ContextClient()
+        credentials = ProviderCredentials(api_format="openai_chat", base_url="https://api.example.com/v1", api_key="key", model="model")
+        context = ProductContext(product_overview="客服工作台", business_goals="提升一次解决率")
+        events = [json.loads(chunk) async for chunk in stream_review(
+            credentials=credentials,
+            prd_text="# Demo PRD\n提交后显示成功，并需要定义完整的业务目标。",
+            product_context=context,
+            preset="normal",
+            client=client,
+        )]
+        report = next(event["report"] for event in events if event["event"] == "complete")
+        self.assertEqual(report["product_context"]["source_count"], 2)
+        self.assertEqual(report["issues"][0]["source_type"], "context")
+        self.assertEqual(report["issues"][0]["source_id"], "business_goals")
+        self.assertEqual(len(client.prompts), 6)
+        self.assertTrue(all('"reference": "CTX:business_goals"' in prompt for prompt in client.prompts))
+
     async def test_closing_stream_cancels_outstanding_provider_calls(self):
         class BlockingClient:
             def __init__(self):
@@ -172,6 +212,28 @@ class EvidenceValidationTests(unittest.IsolatedAsyncioTestCase):
 
         _, result = await review_dimension(HallucinatingClient(), "completeness", "# Demo\n真实的产品需求原文。")
         self.assertEqual(result.issues[0].source_quote, "")
+
+    async def test_context_quote_must_exist_in_the_declared_context_source(self):
+        class WrongSourceClient:
+            async def complete(self, **kwargs):
+                return json.dumps({
+                    "score": 7,
+                    "issues": [{
+                        "severity": "LOW", "title": "A", "location": "目标", "description": "a", "suggestion": "fix",
+                        "source_quote": "企业客户", "source_type": "context", "source_id": "business_goals",
+                    }],
+                    "reasoning": "ok",
+                }, ensure_ascii=False)
+
+        _, result = await review_dimension(
+            WrongSourceClient(),
+            "user_value",
+            "# Demo\n真实原文。",
+            "<product_context>...</product_context>",
+            {"target_users": "企业客户", "business_goals": "提升留存"},
+        )
+        self.assertEqual(result.issues[0].source_quote, "")
+        self.assertEqual(result.issues[0].source_type, "none")
 
 
 if __name__ == "__main__":

@@ -98,6 +98,7 @@ export async function startReviewStream({
   apiKey,
   model,
   visionModel,
+  productContext = null,
   preset,
   signal,
   fetchImpl = fetch,
@@ -123,6 +124,7 @@ export async function startReviewStream({
   body.append('api_key', apiKey)
   body.append('model', model)
   body.append('vision_model', visionModel || model)
+  if (productContext) body.append('product_context', JSON.stringify(productContext))
   body.append('preset', preset)
 
   const response = await fetchImpl(createApiUrl(apiBaseUrl, '/review/run'), {
@@ -213,6 +215,8 @@ function normalizeIssue(issue = {}, index = 0) {
     description: issue.description || issue.reasoning || '未提供问题描述',
     suggestion: issue.suggestion || '未提供修改建议',
     sourceQuote: issue.source_quote || issue.sourceQuote || '',
+    sourceType: issue.source_type || issue.sourceType || 'prd',
+    sourceId: issue.source_id || issue.sourceId || '',
     sourceSection: issue.source_section || issue.sourceSection || '',
     sourceLocator: issue.source_locator || issue.sourceLocator || '',
   }

@@ -31,6 +31,13 @@
           @clear-file="$emit('clear-file')"
         />
 
+        <ProductContextPanel
+          :model-value="productContext"
+          :disabled="isRunning"
+          @update:model-value="$emit('update:product-context', $event)"
+          @clear="$emit('clear-product-context')"
+        />
+
         <div class="configuration-grid">
           <section class="surface-card mode-card">
             <header><span aria-hidden="true">⌁</span><div><h2>评审预设</h2><p>选择后随评审请求发送。</p></div></header>
@@ -72,6 +79,7 @@
 <script setup>
 import { computed } from 'vue'
 import PageHeader from '../layout/PageHeader.vue'
+import ProductContextPanel from '../ProductContextPanel.vue'
 import ReviewProgress from '../ReviewProgress.vue'
 import UploadArea from '../UploadArea.vue'
 
@@ -81,6 +89,7 @@ const props = defineProps({
   uploadError: { type: String, default: '' },
   isRunning: Boolean,
   apiConfig: { type: Object, required: true },
+  productContext: { type: Object, required: true },
   formats: { type: Array, default: () => [] },
   streamText: { type: String, default: '' },
   agentStages: { type: Array, default: () => [] },
@@ -89,7 +98,7 @@ const props = defineProps({
   canOpenAssistant: Boolean,
 })
 
-const emit = defineEmits(['update:selected-file-name', 'update:api-config', 'file-selected', 'clear-file', 'start-review', 'reset-demo', 'navigate'])
+const emit = defineEmits(['update:selected-file-name', 'update:api-config', 'update:product-context', 'clear-product-context', 'file-selected', 'clear-file', 'start-review', 'reset-demo', 'navigate'])
 const selectedFileNameModel = computed({ get: () => props.selectedFileName, set: (value) => emit('update:selected-file-name', value) })
 const formatName = computed(() => props.formats.find((item) => item.id === props.apiConfig.apiFormat)?.name || props.apiConfig.apiFormat || '未配置')
 const canStart = computed(() => Boolean(!props.isRunning && props.selectedFileName && props.apiConfig.baseUrl?.trim() && props.apiConfig.apiKey?.trim() && props.apiConfig.model?.trim()))

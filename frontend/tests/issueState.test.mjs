@@ -81,7 +81,7 @@ test('buildIssueExportItems attaches local status to issues', () => {
 test('buildSuggestionExport only includes accepted or pending-fix issues', () => {
   const markdown = buildSuggestionExport({
     issues: [
-      { displayId: 'HIGH-1', title: '验收标准缺失', suggestion: '补充失败重试', description: '只描述成功路径', status: 'accepted' },
+      { displayId: 'HIGH-1', title: '验收标准缺失', suggestion: '补充失败重试', description: '只描述成功路径', status: 'accepted', sourceQuote: '提升一次解决率', sourceType: 'context', sourceId: 'business_goals' },
       { displayId: 'LOW-1', title: '术语不统一', suggestion: '统一术语', description: '多处术语混用', status: 'ignored' },
       { displayId: 'MEDIUM-1', title: '边界场景不足', suggestion: '补充失败场景', description: '缺少失败处理', status: 'fixed_pending_verify' },
     ],
@@ -89,6 +89,8 @@ test('buildSuggestionExport only includes accepted or pending-fix issues', () =>
 
   assert.match(markdown, /HIGH-1/)
   assert.match(markdown, /MEDIUM-1/)
+  assert.match(markdown, /产品 Context · 业务目标/)
+  assert.match(markdown, /提升一次解决率/)
   assert.doesNotMatch(markdown, /LOW-1/)
 })
 

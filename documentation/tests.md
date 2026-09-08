@@ -7,7 +7,7 @@ uv sync --dev
 uv run pytest -q tests
 ```
 
-Coverage includes three API request shapes, Base URL security, credential validation, sanitized upstream errors, in-memory parsing, concurrent reviewers, degraded completion, stable issue identity, and the one-request streaming API.
+Coverage includes three API request shapes, Base URL security, credential validation, Product Context validation and provenance, sanitized upstream errors, in-memory parsing, concurrent reviewers, degraded completion, stable issue identity, and the one-request streaming API.
 
 ## Frontend
 
@@ -18,7 +18,7 @@ npm run build
 npm audit
 ```
 
-Contracts cover the Vue root entry, BYOK payloads, browser-side PDF preparation without raw PDF upload, no session/EventSource flow, NDJSON consumption, 0–100 report mapping, issue state/export, and UI copy.
+Contracts cover the Vue root entry, BYOK payloads, Product Context persistence/request omission, browser-side PDF preparation without raw PDF upload, no session/EventSource flow, NDJSON consumption, 0–100 report mapping, issue state/export, and UI copy.
 
 ## Local deterministic skill
 

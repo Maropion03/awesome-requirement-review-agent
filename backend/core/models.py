@@ -11,6 +11,14 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, m
 
 
 APIFormat = Literal["openai_chat", "openai_responses", "anthropic_messages"]
+MAX_PRODUCT_CONTEXT_CHARS = 20_000
+PRODUCT_CONTEXT_LABELS = {
+    "product_overview": "产品概览",
+    "business_goals": "业务目标",
+    "target_users": "目标用户",
+    "success_metrics": "成功指标",
+    "decisions_constraints": "历史决策与约束",
+}
 
 
 class ProviderCredentials(BaseModel):
@@ -75,6 +83,40 @@ class ProviderValidationRequest(ProviderCredentials):
     pass
 
 
+class ProductContext(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    product_overview: str = Field(default="", max_length=5000)
+    business_goals: str = Field(default="", max_length=4000)
+    target_users: str = Field(default="", max_length=3000)
+    success_metrics: str = Field(default="", max_length=3000)
+    decisions_constraints: str = Field(default="", max_length=5000)
+
+    @field_validator(*PRODUCT_CONTEXT_LABELS, mode="before")
+    @classmethod
+    def validate_context_text(cls, value: Any) -> str:
+        text = str(value or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+        if any(ord(character) < 32 and character not in "\n\t" for character in text):
+            raise ValueError("产品 Context 包含无效控制字符")
+        return text
+
+    @model_validator(mode="after")
+    def limit_total_size(self) -> "ProductContext":
+        if sum(len(value) for value in self.source_map().values()) > MAX_PRODUCT_CONTEXT_CHARS:
+            raise ValueError("产品 Context 不能超过 2 万字符")
+        return self
+
+    def source_map(self) -> dict[str, str]:
+        if not self.enabled:
+            return {}
+        return {
+            field: getattr(self, field)
+            for field in PRODUCT_CONTEXT_LABELS
+            if getattr(self, field)
+        }
+
+
 class ReviewIssue(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -84,6 +126,8 @@ class ReviewIssue(BaseModel):
     description: str = Field(min_length=1, max_length=2000)
     suggestion: str = Field(min_length=1, max_length=2000)
     source_quote: str = Field(default="", max_length=1000)
+    source_type: Literal["prd", "context", "none"] = "prd"
+    source_id: str = Field(default="", max_length=80)
 
     @field_validator("severity", mode="before")
     @classmethod

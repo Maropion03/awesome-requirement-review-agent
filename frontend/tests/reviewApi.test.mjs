@@ -100,6 +100,23 @@ test('prepared PDFs send extracted text and diagram pages without raw PDF bytes'
   assert.equal(requestBody.get('vision_model'), 'vision-model')
 })
 
+test('enabled product context is serialized into the stateless review request', async () => {
+  const body = new ReadableStream({ start(controller) { controller.close() } })
+  let requestBody
+  await startReviewStream({
+    apiBaseUrl: '/api',
+    file: new File(['# Demo\nA complete PRD body'], 'demo.md'),
+    apiFormat: 'openai_chat', endpointBaseUrl: 'https://api.example.com/v1', apiKey: 'key', model: 'review-model', preset: 'normal',
+    productContext: { enabled: true, product_overview: 'Product background', business_goals: 'Grow retention' },
+    fetchImpl: async (url, options) => { requestBody = options.body; return { ok: true, body } },
+  })
+  assert.deepEqual(JSON.parse(requestBody.get('product_context')), {
+    enabled: true,
+    product_overview: 'Product background',
+    business_goals: 'Grow retention',
+  })
+})
+
 test('mapReportToViewModel preserves a 0-100 total and dimension evidence', () => {
   const viewModel = mapReportToViewModel({
     total_score: 76,

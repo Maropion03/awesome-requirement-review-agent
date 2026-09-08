@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 
-from .core.models import ChatRequest, ProviderCredentials, ProviderValidationRequest
+from .core.models import ChatRequest, ProductContext, ProviderCredentials, ProviderValidationRequest
 from .core.parser import DocumentError, MAX_DOCUMENT_CHARS, MAX_UPLOAD_BYTES, parse_document
 from .core.pipeline import PRESET_WEIGHTS, answer_report_question, stream_review
 from .core.providers import API_FORMATS, LLMClient, ProviderError, get_api_format
@@ -72,6 +72,7 @@ async def run_review(
     api_key: str = Form(...),
     model: str = Form(...),
     vision_model: str | None = Form(None),
+    product_context: str | None = Form(None),
     preset: str = Form("normal"),
 ) -> StreamingResponse:
     try:
@@ -88,6 +89,15 @@ async def run_review(
 
     if preset not in PRESET_WEIGHTS:
         raise HTTPException(status_code=422, detail="未知评审预设")
+
+    context = None
+    if product_context:
+        if len(product_context) > 30_000:
+            raise HTTPException(status_code=422, detail="产品 Context 请求过大")
+        try:
+            context = ProductContext.model_validate_json(product_context)
+        except ValidationError as error:
+            raise HTTPException(status_code=422, detail=f"产品 Context 格式无效：{error}") from None
 
     if document_text is not None:
         cleaned = document_text.strip()
@@ -129,6 +139,7 @@ async def run_review(
             credentials=credentials,
             vision_credentials=vision_credentials,
             prd_text=prd_text,
+            product_context=context,
             preset=preset,
             diagram_images=prepared_images,
         ),

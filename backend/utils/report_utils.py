@@ -25,6 +25,8 @@ def _build_evidence(issue: Dict[str, Any]) -> Dict[str, str]:
         "source_quote": _normalize_string(issue.get("source_quote")),
         "source_section": _normalize_string(issue.get("source_section")),
         "source_locator": _normalize_string(issue.get("source_locator")),
+        "source_type": _normalize_string(issue.get("source_type")),
+        "source_id": _normalize_string(issue.get("source_id")),
     }
 
 
@@ -107,7 +109,7 @@ def sort_and_renumber_issues(issues: List[Dict[str, Any]]) -> List[Dict[str, Any
         normalized_issue["id"] = f"{prefix}-{counters[prefix]}"
         normalized_issue["display_id"] = normalized_issue["id"]
         normalized_issue["issue_key"] = build_issue_key(normalized_issue)
-        for field in ("source_quote", "source_section", "source_locator"):
+        for field in ("source_quote", "source_section", "source_locator", "source_type", "source_id"):
             normalized_issue[field] = _normalize_string(normalized_issue.get(field))
         normalized_issue["evidence"] = _build_evidence(normalized_issue)
         normalized.append(normalized_issue)

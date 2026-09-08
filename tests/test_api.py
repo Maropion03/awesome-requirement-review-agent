@@ -64,6 +64,34 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(connected["model"], "review-model")
         self.assertEqual(connected["vision_model"], "vision-model")
 
+    def test_review_accepts_validated_product_context_without_returning_its_content(self):
+        with patch("backend.core.pipeline.LLMClient", FakeClient):
+            response = self.client.post(
+                "/api/review/run",
+                files={"file": ("demo.md", b"# Demo PRD\nA sufficiently detailed product requirement document.", "text/markdown")},
+                data={
+                    "api_format": "openai_chat", "base_url": "https://api.example.com/v1", "api_key": "private-key",
+                    "model": "model", "preset": "normal",
+                    "product_context": json.dumps({"enabled": True, "product_overview": "private product background"}),
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        events = [json.loads(line) for line in response.text.splitlines()]
+        report = events[-1]["report"]
+        self.assertEqual(report["product_context"]["source_count"], 1)
+        self.assertNotIn("private product background", json.dumps(report))
+
+    def test_review_rejects_malformed_product_context(self):
+        response = self.client.post(
+            "/api/review/run",
+            files={"file": ("demo.md", b"# Demo PRD\nA sufficiently detailed product requirement document.", "text/markdown")},
+            data={
+                "api_format": "openai_chat", "base_url": "https://api.example.com/v1", "api_key": "key",
+                "model": "model", "preset": "normal", "product_context": '{"unknown": "field"}',
+            },
+        )
+        self.assertEqual(response.status_code, 422)
+
     def test_bad_file_and_bad_key_fail_before_streaming(self):
         response = self.client.post(
             "/api/review/run",

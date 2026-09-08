@@ -17,6 +17,7 @@
       :upload-error="uploadError"
       :is-running="isRunning"
       :api-config="apiConfig"
+      :product-context="productContext"
       :formats="formats"
       :stream-text="streamText"
       :agent-stages="agentStages"
@@ -25,6 +26,8 @@
       :can-open-assistant="canOpenAssistant"
       @update:selected-file-name="selectedFileName = $event"
       @update:api-config="updateApiConfig"
+      @update:product-context="productContext = $event"
+      @clear-product-context="clearStoredProductContext"
       @file-selected="handleFileSelected"
       @clear-file="clearSelectedFile"
       @start-review="startReviewFlow"
@@ -107,6 +110,13 @@ import { HASH_ROUTES, formatHashRoute, resolveHashRoute } from './lib/hashRoute.
 import { buildIssueExportItems, getIssueIdentifier, mergeIssueStatuses, updateIssueStatus } from './lib/issueState.js'
 import { shouldConfirmTextOnlyPdfReview } from './lib/modelCapabilities.js'
 import {
+  buildProductContextPayload,
+  clearProductContext,
+  createEmptyProductContext,
+  loadProductContext,
+  saveProductContext,
+} from './lib/productContextStorage.js'
+import {
   API_FORMAT_FALLBACKS,
   createBaseDimensions,
   createEmptyReportViewModel,
@@ -137,6 +147,7 @@ const defaultApiConfig = {
 }
 const browserStorage = typeof window !== 'undefined' ? window.localStorage : null
 const apiConfig = ref(loadApiConfig({ storage: browserStorage, fallback: defaultApiConfig }))
+const productContext = ref(loadProductContext({ storage: browserStorage }))
 const selectedFile = ref(null)
 const selectedFileName = ref('')
 const uploadState = ref('idle')
@@ -231,6 +242,11 @@ function clearStoredApiConfig() {
   apiConfig.value = { ...defaultApiConfig }
 }
 
+function clearStoredProductContext() {
+  clearProductContext({ storage: browserStorage })
+  productContext.value = createEmptyProductContext()
+}
+
 function appendStreamLine(line) {
   if (line) streamText.value = streamText.value ? `${streamText.value}\n${line}` : line
 }
@@ -313,6 +329,7 @@ async function startReviewFlow() {
   reviewController = new AbortController()
 
   try {
+    const contextPayload = buildProductContextPayload(productContext.value)
     let preparedDocument = null
     if (/\.pdf$/i.test(selectedFile.value.name)) {
       appendStreamLine('正在浏览器本地提取 PDF 文本并定位流程图候选页面…')
@@ -331,6 +348,7 @@ async function startReviewFlow() {
       apiKey: apiConfig.value.apiKey,
       model: apiConfig.value.model,
       visionModel: effectiveVisionModel.value,
+      productContext: contextPayload,
       preset: apiConfig.value.preset,
       signal: reviewController.signal,
       onConnected: () => appendStreamLine(`已连接 ${formatLabel.value}`),
@@ -454,6 +472,10 @@ watch(() => report.value.issues, (issues) => {
 
 watch(apiConfig, (next) => {
   saveApiConfig(next, { storage: browserStorage })
+}, { deep: true })
+
+watch(productContext, (next) => {
+  saveProductContext(next, { storage: browserStorage })
 }, { deep: true })
 
 onMounted(async () => {

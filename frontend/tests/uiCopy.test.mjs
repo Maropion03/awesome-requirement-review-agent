@@ -11,6 +11,7 @@ test('primary workspace exposes document, persisted BYOK settings, progress, and
   const uploadArea = readSourceFile('src/components/UploadArea.vue')
   const configPanel = readSourceFile('src/components/ConfigPanel.vue')
   const capabilityDialog = readSourceFile('src/components/ModelCapabilityDialog.vue')
+  const productContextPanel = readSourceFile('src/components/ProductContextPanel.vue')
   const reviewApi = readSourceFile('src/lib/reviewApi.js')
   const reviewProgress = readSourceFile('src/components/ReviewProgress.vue')
   const reportViewer = readSourceFile('src/components/ReportViewer.vue')
@@ -30,6 +31,9 @@ test('primary workspace exposes document, persisted BYOK settings, progress, and
   assert.match(configPanel, /仅支持文本输入/)
   assert.match(capabilityDialog, /当前正文模型不支持图片/)
   assert.match(capabilityDialog, /检查模型设置/)
+  assert.match(productContextPanel, /给评审补充产品背景/)
+  assert.match(productContextPanel, /历史决策与约束/)
+  assert.match(productContextPanel, /本次启用/)
 
   assert.match(reviewProgress, />实时进度</)
   assert.match(reportViewer, /Recommendation/)

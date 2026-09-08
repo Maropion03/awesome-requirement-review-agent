@@ -20,6 +20,7 @@ An open-source PRD review workbench for product teams. Bring your own model API 
 - Evidence-linked issues with severity, actionable revisions, local handling status, and Markdown export.
 - Report-aware follow-up assistant that can explain conclusions, locate source text, and draft PRD-ready changes.
 - Browser-side PDF text extraction plus one multimodal diagram pass that converts flowcharts into deterministic Mermaid context.
+- A browser-persisted Product Context Pack for overview, goals, users, metrics, and prior decisions, injected into all six reviews when enabled.
 - Browser-persisted BYOK settings for three API formats and any compatible public HTTPS endpoint.
 - Stateless Vercel architecture: no built-in model key, account system, server session, or document database.
 
@@ -37,7 +38,7 @@ An open-source PRD review workbench for product teams. Bring your own model API 
 
 ## API key handling
 
-The API format, Base URL, review model, vision model, preset, and key are stored as plaintext in this browser's `localStorage` so the configuration survives refreshes and browser restarts. Each validation, review, or chat request sends the key through the Vercel Function to the configured endpoint. The app does not write keys to cookies, a server-side database, files, analytics, or logs. Use **Clear local configuration** on shared devices or clear the site's browser data.
+The API format, Base URL, review model, vision model, preset, key, and Product Context are stored as plaintext in this browser's `localStorage` so they survive refreshes and browser restarts. Product Context can be disabled for one review without deleting it; when enabled, it is sent with the PRD through the Vercel Function to the configured endpoint. The app does not write these values to cookies, a server-side database, files, analytics, or logs. Use the corresponding clear actions on shared devices or clear the site's browser data.
 
 Browser storage is a convenience/security tradeoff: scripts running on this origin can read the stored key. The key also transits the serverless function, so the Vercel deployment operator must still be trusted. Self-host if the PRD or key cannot pass through a third-party deployment.
 
@@ -99,7 +100,7 @@ The repository includes [`vercel.json`](./vercel.json). Production needs no secr
 | POST | `/api/review/run` | Multipart document + BYOK config; returns NDJSON progress and report |
 | POST | `/api/review/chat` | Stateless report follow-up |
 
-Uploads are capped at 3.5MB. PDF text is extracted in the browser; up to four image-heavy pages are rendered as compressed diagram candidates, so raw PDF bytes do not cross the Vercel Firewall. The separately configurable vision model is called once to produce validated graph data and deterministic Mermaid, then the result is reused by all six review-model calls. Vision failure degrades to text-only review and shows a sanitized upstream reason. Extracted text is capped at 80,000 characters; scanned PDFs still require OCR.
+Uploads are capped at 3.5MB. PDF text is extracted in the browser; up to four image-heavy pages are rendered as compressed diagram candidates, so raw PDF bytes do not cross the Vercel Firewall. The separately configurable vision model is called once to produce validated graph data and deterministic Mermaid, then the result is reused by all six review-model calls. Product Context is capped at 20,000 characters across five fixed sources. Quoted evidence is retained only when it exists in the declared PRD or Context source, and reports label that provenance. Extracted text is capped at 80,000 characters; scanned PDFs still require OCR.
 
 ## Repository layout
 

@@ -9,13 +9,13 @@ sequenceDiagram
     participant V as Vercel Function
     participant M as Model API
 
-    U->>B: Select .md/.docx/.pdf and enter Key
+    U->>B: Select .md/.docx/.pdf, enter Key, optionally enable Product Context
     opt PDF with a known text-only review model
       B-->>U: Confirm review-model and vision-model routing
     end
     B->>B: For PDF, extract text and render diagram candidates
-    B->>V: POST text or document + optional candidate JPEGs
-    V->>V: Validate format, public Base URL, key shape, type, size; parse in memory
+    B->>V: POST text/document + optional Context + candidate JPEGs
+    V->>V: Validate format, public Base URL, document and Context; parse in memory
     opt Diagram candidates exist
       V->>M: One graph extraction with the configured vision model
       M-->>V: Nodes, edges, confidence
@@ -23,12 +23,12 @@ sequenceDiagram
     end
     V-->>B: connected + six dimension_start events
     par Six concurrent dimensions
-      V->>M: Review dimension with the configured review model and untrusted PRD
+      V->>M: Review dimension with separated untrusted PRD and Product Context
       M-->>V: JSON candidate
     end
     V->>V: Validate/repair; deterministically aggregate
     V-->>B: dimension_complete events + complete report
-    B->>B: Track issue state and allow Markdown export
+    B->>B: Label PRD/Context evidence, track issue state, allow Markdown export
 ```
 
 The terminal event is always either `complete` or `error`. A dimension error does not leave the browser waiting indefinitely.

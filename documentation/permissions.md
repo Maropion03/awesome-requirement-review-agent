@@ -2,8 +2,8 @@
 
 | Actor | Can access | Cannot access by design |
 | --- | --- | --- |
-| Browser page | Selected local file bytes, browser-extracted PDF text/candidate page renders, locally persisted model configuration, in-memory report/chat | Other local files, secrets from other origins, another user's data |
-| Vercel Function | Current request body, configured public HTTPS endpoint, and model response for the request lifetime | Durable user state, database, private-network endpoints |
+| Browser page | Selected local file bytes, browser-extracted PDF text/candidate page renders, locally persisted model configuration and Product Context, in-memory report/chat | Other local files, secrets from other origins, another user's data |
+| Vercel Function | Current request body including enabled Product Context, configured public HTTPS endpoint, and model response for the request lifetime | Durable user state, database, private-network endpoints |
 | Configured model endpoint | Prompt content required for the current review/chat and the account Key | Browser state outside the submitted request |
 | Repository/deployer | Source and deployment configuration | A built-in production model Key, because none is configured |
 
@@ -12,12 +12,13 @@
 - Password input with opt-in visibility toggle.
 - `autocomplete="off"`; format, Base URL, model, preset, and Key are stored as plaintext in origin-scoped `localStorage`.
 - A visible clear action removes the persisted configuration; shared devices should not retain it.
+- Product Context has a separate enable switch and clear action. It is stored as plaintext in the same origin and capped at 20,000 characters.
 - Maximum length and control-character validation.
 - Base URLs require HTTPS 443, public DNS results, no embedded credentials/query/fragment, and no redirects.
 - API responses never return the Key or upstream response body.
 - Upstream response bodies are not forwarded to the browser.
 
-Each review sends the PRD to the configured endpoint once per dimension, for six concurrent model calls. The connection test, JSON repair, and report chat can add calls and therefore consume the user's model quota.
+Each review sends the PRD and enabled Product Context to the configured endpoint once per dimension, for six concurrent model calls. The connection test, JSON repair, vision pass, and report chat can add calls and therefore consume the user's model quota.
 
 ## CORS
 
