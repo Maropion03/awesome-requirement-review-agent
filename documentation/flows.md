@@ -10,6 +10,9 @@ sequenceDiagram
     participant M as Model API
 
     U->>B: Select .md/.docx/.pdf and enter Key
+    opt PDF with a known text-only review model
+      B-->>U: Confirm review-model and vision-model routing
+    end
     B->>B: For PDF, extract text and render diagram candidates
     B->>V: POST text or document + optional candidate JPEGs
     V->>V: Validate format, public Base URL, key shape, type, size; parse in memory

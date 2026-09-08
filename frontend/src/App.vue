@@ -78,6 +78,14 @@
       @clear-api-config="clearStoredApiConfig"
       @navigate="goToRoute"
     />
+
+    <ModelCapabilityDialog
+      :open="modelCapabilityDialogOpen"
+      :review-model="apiConfig.model"
+      :vision-model="effectiveVisionModel"
+      @continue="resolveModelCapabilityDialog(true)"
+      @configure="resolveModelCapabilityDialog(false)"
+    />
   </div>
 </template>
 
@@ -89,6 +97,7 @@ import WorkbenchPage from './components/pages/WorkbenchPage.vue'
 import ReportPage from './components/pages/ReportPage.vue'
 import AssistantPage from './components/pages/AssistantPage.vue'
 import SettingsPage from './components/pages/SettingsPage.vue'
+import ModelCapabilityDialog from './components/ModelCapabilityDialog.vue'
 import { clearApiConfig, loadApiConfig, resolveVisionModel, saveApiConfig } from './lib/apiConfigStorage.js'
 import { createAgentStages, applyDimensionEvent, applyStreamingMessage, completeReporterStage } from './lib/agentStages.js'
 import { buildAssistantSnapshot, createAssistantState, findIssueById, normalizeChatResponse } from './lib/assistantPanel.js'
@@ -96,6 +105,7 @@ import { sendChatMessage } from './lib/chatApi.js'
 import { buildExportPayload } from './lib/exportSuggestions.js'
 import { HASH_ROUTES, formatHashRoute, resolveHashRoute } from './lib/hashRoute.js'
 import { buildIssueExportItems, getIssueIdentifier, mergeIssueStatuses, updateIssueStatus } from './lib/issueState.js'
+import { shouldConfirmTextOnlyPdfReview } from './lib/modelCapabilities.js'
 import {
   API_FORMAT_FALLBACKS,
   createBaseDimensions,
@@ -145,7 +155,9 @@ const assistantSourceRefs = ref([])
 const assistantStatus = ref('unavailable')
 const assistantResponseMode = ref('report_level')
 const isChatLoading = ref(false)
+const modelCapabilityDialogOpen = ref(false)
 let reviewController = null
+let modelCapabilityDialogResolver = null
 
 const canViewReport = computed(() => Boolean(report.value.rawReport))
 const canOpenAssistant = computed(() => Boolean(
@@ -223,6 +235,18 @@ function appendStreamLine(line) {
   if (line) streamText.value = streamText.value ? `${streamText.value}\n${line}` : line
 }
 
+function requestModelCapabilityConfirmation() {
+  modelCapabilityDialogOpen.value = true
+  return new Promise((resolve) => { modelCapabilityDialogResolver = resolve })
+}
+
+function resolveModelCapabilityDialog(shouldContinue) {
+  modelCapabilityDialogOpen.value = false
+  modelCapabilityDialogResolver?.(shouldContinue)
+  modelCapabilityDialogResolver = null
+  if (!shouldContinue) goToRoute(HASH_ROUTES.settings)
+}
+
 function markDimensionStatus(dimensionName, status) {
   dimensions.value = dimensions.value.map((item) => item.name === dimensionName ? { ...item, status } : item)
 }
@@ -258,7 +282,7 @@ function clearSelectedFile() {
 }
 
 async function startReviewFlow() {
-  if (isRunning.value) return
+  if (isRunning.value || modelCapabilityDialogOpen.value) return
   const fileError = validateFile(selectedFile.value)
   if (fileError) {
     uploadState.value = 'error'
@@ -268,6 +292,10 @@ async function startReviewFlow() {
   if (!apiConfig.value.apiKey.trim() || !apiConfig.value.model.trim() || !apiConfig.value.baseUrl.trim()) {
     uploadError.value = '请先填写接口格式、Base URL、API Key 和模型名'
     return
+  }
+  if (shouldConfirmTextOnlyPdfReview({ fileName: selectedFile.value.name, model: apiConfig.value.model })) {
+    const shouldContinue = await requestModelCapabilityConfirmation()
+    if (!shouldContinue) return
   }
 
   cancelReview()
@@ -443,6 +471,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   cancelReview()
+  modelCapabilityDialogResolver?.(false)
   if (typeof window !== 'undefined') window.removeEventListener('hashchange', syncRouteFromHash)
 })
 </script>

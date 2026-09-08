@@ -52,12 +52,19 @@
       </div>
     </div>
 
+    <p v-if="textOnlyModel" class="model-warning" role="status">
+      <strong>{{ modelCapability.family }} 仅支持文本输入。</strong>
+      它可以继续负责正文评审；PDF 流程图会使用 {{ effectiveVisionModel }}。若两者相同，请填写一个支持图片的视觉模型。
+    </p>
+
     <p class="trust-note"><span aria-hidden="true">↳</span>Key 与 Base URL 会以明文写入当前浏览器的 localStorage。视觉模型留空时复用正文模型；智谱官方地址的 GLM-5.3 旧配置会自动使用 glm-4.6v-flash 识别流程图。服务端仅访问公网 HTTPS 443 端点且不跟随重定向。</p>
   </section>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
+import { resolveVisionModel } from '../lib/apiConfigStorage.js'
+import { detectModelCapability } from '../lib/modelCapabilities.js'
 import { API_FORMAT_FALLBACKS, validateFormat } from '../lib/reviewApi.js'
 
 const props = defineProps({
@@ -70,6 +77,9 @@ const testState = ref('idle')
 const testMessage = ref('尚未验证')
 const activeFormat = computed(() => props.formats.find((format) => format.id === props.modelValue.apiFormat) || props.formats[0] || API_FORMAT_FALLBACKS[0])
 const canTest = computed(() => Boolean(props.modelValue.baseUrl?.trim() && props.modelValue.apiKey?.trim() && props.modelValue.model?.trim()))
+const modelCapability = computed(() => detectModelCapability(props.modelValue.model))
+const textOnlyModel = computed(() => modelCapability.value.capability === 'text_only')
+const effectiveVisionModel = computed(() => resolveVisionModel(props.modelValue))
 
 function updateField(field, value) {
   testState.value = 'idle'
@@ -122,6 +132,7 @@ h2 { margin: 7px 0 0; font-size: 24px; }
 .secret-input { display: flex; }.secret-input input { border-radius: 13px 0 0 13px; }.secret-input button { padding: 0 14px; border: 1px solid var(--line); border-left: 0; border-radius: 0 13px 13px 0; background: var(--soft); color: var(--primary); cursor: pointer; font-weight: 700; }
 .connection-test { display: grid; gap: 8px; }.test-status { max-width: 150px; overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }.test-status.success { color: var(--success); }.test-status.error { color: var(--danger); }
 .test-button { min-height: 44px; padding: 0 17px; border: 0; border-radius: 999px; background: var(--primary); color: #fff; cursor: pointer; font-weight: 800; white-space: nowrap; }.test-button:disabled { cursor: not-allowed; opacity: .45; }
+.model-warning { margin: 0; padding: 14px 26px; border-top: 1px solid #edc8bd; background: #fff1ed; color: #854138; font-size: 12px; line-height: 1.7; }.model-warning strong { margin-right: 4px; color: #a33428; }
 .trust-note { margin: 0; padding: 16px 26px; display: flex; gap: 9px; border-top: 1px solid var(--line); background: #fff8ed; color: var(--muted); font-size: 12px; line-height: 1.7; }.trust-note span { color: var(--primary); }
 @media (max-width: 1180px) { .config-grid { grid-template-columns: 1fr 1fr; } .base-url-field, .key-field, .review-model-field, .vision-model-field, .preset-field, .connection-test { grid-column: auto; } }
 @media (max-width: 650px) { .format-strip, .config-grid { grid-template-columns: 1fr; } .format-option { border-right: 0; border-bottom: 1px solid var(--line); } .panel-head { align-items: flex-start; flex-direction: column; } }

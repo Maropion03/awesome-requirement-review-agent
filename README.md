@@ -49,7 +49,7 @@ Browser storage is a convenience/security tradeoff: scripts running on this orig
 | OpenAI Responses | `/responses` | `https://api.openai.com/v1` |
 | Anthropic Messages | `/v1/messages` | `https://api.anthropic.com` |
 
-Model catalogs change, so the review and PDF-diagram vision model fields are editable. A blank vision model reuses the review model. Existing GLM-5.3 configurations on Zhipu's official endpoint use `glm-4.6v-flash` for diagrams because GLM-5.3 accepts text input only; an explicit vision model overrides this default.
+Model catalogs change, so the review and PDF-diagram vision model fields are editable. A blank vision model reuses the review model. Existing GLM-5.3 configurations on Zhipu's official endpoint use `glm-4.6v-flash` for diagrams because GLM-5.3 accepts text input only. The settings page flags known text-only models, and a confirmation dialog explains the review/vision routing before a PDF review starts. An explicit vision model overrides the default.
 
 ## Local development
 

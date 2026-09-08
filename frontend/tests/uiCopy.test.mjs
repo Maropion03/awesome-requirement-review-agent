@@ -10,6 +10,7 @@ function readSourceFile(relativePath) {
 test('primary workspace exposes document, persisted BYOK settings, progress, and report', () => {
   const uploadArea = readSourceFile('src/components/UploadArea.vue')
   const configPanel = readSourceFile('src/components/ConfigPanel.vue')
+  const capabilityDialog = readSourceFile('src/components/ModelCapabilityDialog.vue')
   const reviewApi = readSourceFile('src/lib/reviewApi.js')
   const reviewProgress = readSourceFile('src/components/ReviewProgress.vue')
   const reportViewer = readSourceFile('src/components/ReportViewer.vue')
@@ -26,6 +27,9 @@ test('primary workspace exposes document, persisted BYOK settings, progress, and
   assert.match(configPanel, /Base URL/)
   assert.match(configPanel, /API Key/)
   assert.match(configPanel, /localStorage/)
+  assert.match(configPanel, /仅支持文本输入/)
+  assert.match(capabilityDialog, /当前正文模型不支持图片/)
+  assert.match(capabilityDialog, /检查模型设置/)
 
   assert.match(reviewProgress, />实时进度</)
   assert.match(reportViewer, /Recommendation/)
